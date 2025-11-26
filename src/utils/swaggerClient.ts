@@ -93,8 +93,8 @@ info:
   version: 1.0.0
   description: Comprehensive API documentation for Toolvio Backend
 servers:
-  - url: http://localhost:3000
-    description: Local server
+  - url: ${API_BASE_URL}
+    description: Backend server
 paths:
   /api/auth/login:
     post:

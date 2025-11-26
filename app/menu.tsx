@@ -12,6 +12,7 @@ import {
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter } from 'expo-router';
+import * as SecureStore from 'expo-secure-store';
 import { SchemaApi, Schema } from '../src/utils/api';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
@@ -21,8 +22,33 @@ const MenuScreen = () => {
   const [schemas, setSchemas] = useState<Schema[]>([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState<string | null>(null);
+  const [isSuperAdmin, setIsSuperAdmin] = useState(false);
   const scrollViewRef = useRef(null);
   const router = useRouter();
+
+  // Check if user is super admin
+  useEffect(() => {
+    checkSuperAdminStatus();
+  }, []);
+
+  const checkSuperAdminStatus = async () => {
+    try {
+      const userStr = await SecureStore.getItemAsync('auth_user');
+      if (userStr) {
+        const user = JSON.parse(userStr);
+        const isAdmin = user.role === 'system_admin' || user.isSystemAdmin === true;
+        setIsSuperAdmin(isAdmin);
+        
+        // Redirect super admin to super admin menu
+        const loginMode = await SecureStore.getItemAsync('login_mode');
+        if (isAdmin && loginMode === 'superadmin') {
+          router.replace('/super-admin-menu');
+        }
+      }
+    } catch (err) {
+      console.error('Error checking admin status:', err);
+    }
+  };
 
   // Fetch schemas from API
   useEffect(() => {
@@ -109,6 +135,17 @@ const MenuScreen = () => {
       description: 'Manage tenants and users',
       icon: 'business-outline',
       route: '/tenant-management',
+    },
+    {
+      id: 7,
+      title: 'View Management',
+      agency: 'Dynamic Views',
+      time: 'Milestone 2 & 6',
+      members: 1,
+      priority: 'high',
+      description: 'Super Admin view management',
+      icon: 'grid-outline',
+      route: '/view-management',
     },
   ];
 

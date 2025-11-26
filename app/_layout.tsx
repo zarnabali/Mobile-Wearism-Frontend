@@ -52,6 +52,9 @@ export default function RootLayout() {
         <Stack.Screen name="tenant-management" options={{ headerShown: false }} />
         <Stack.Screen name="profile" options={{ headerShown: false }} />
         <Stack.Screen name="schema-detail" options={{ headerShown: false }} />
+        <Stack.Screen name="super-admin-menu" options={{ headerShown: false }} />
+        <Stack.Screen name="action-controls" options={{ headerShown: false }} />
+        <Stack.Screen name="view-management" options={{ headerShown: false }} />
       </Stack>
     </QueryProvider>
   );

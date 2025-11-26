@@ -1,17 +1,61 @@
 import Constants from 'expo-constants';
+import { Platform } from 'react-native';
+import * as SecureStore from 'expo-secure-store';
 
-// Prefer explicit environment variable for stability across devices
-// 1) EXPO_PUBLIC_API_BASE (from your environment)
-// 2) app.json -> expo.extra.apiBase
-// 3) fallback to localhost:5000
+// Get the configured backend URL
+const backendPort = process.env.EXPO_PUBLIC_BACKEND_PORT || '3000';
 const explicitEnv = (process.env.EXPO_PUBLIC_API_BASE || '').trim();
 const extraApiBase = (((Constants.expoConfig as any)?.extra?.apiBase as string | undefined) || '').trim();
 
+// Store backend URL
+export async function setBackendURL(url: string) {
+  try {
+    const urlObj = new URL(url);
+    await SecureStore.setItemAsync('backend_ip', urlObj.hostname);
+    await SecureStore.setItemAsync('backend_port', urlObj.port || '3000');
+    console.log('✅ Backend URL stored:', url);
+  } catch (error) {
+    console.error('Failed to store backend URL:', error);
+  }
+}
+
+function getBackendURL(): string {
+  console.log('🔧 Loading API config:', { explicitEnv, extraApiBase, backendPort, Platform: Platform.OS });
+  
+  // Priority 1: Explicit environment variable (EXPO_PUBLIC_API_BASE from .env file)
+  if (explicitEnv) {
+    console.log('🔧 Using EXPO_PUBLIC_API_BASE from env:', explicitEnv);
+    return explicitEnv;
+  }
+  
+  // Priority 2: Extra config from app.json (fallback)
+  if (extraApiBase) {
+    console.log('🔧 Using app.json apiBase:', extraApiBase);
+    return extraApiBase;
+  }
+  
+  // Priority 3: Platform-specific detection (only if no config)
+  if (Platform.OS === 'android') {
+    // Android emulator uses special IP to access host machine
+    const androidURL = `http://10.0.2.2:${backendPort}`;
+    console.log('🔧 Using Android emulator IP:', androidURL);
+    return androidURL;
+  }
+  
+  // Platform fallbacks
+  if (Platform.OS === 'web') {
+    return `http://localhost:${backendPort}`;
+  }
+  
+  // Fallback
+  return `http://localhost:${backendPort}`;
+}
+
 function normalizeBase(raw: string): string {
   let base = (raw || '').trim();
-  // Remove accidental characters like '>' and quotes
+  // Remove accidental characters
   base = base.replace(/["'`<>\s]+$/g, '');
-  // Fix common scheme typos like http// or https// (missing colon)
+  // Fix common typos
   base = base.replace(/^http\/\//i, 'http://').replace(/^https\/\//i, 'https://');
   // Prepend http if missing scheme
   if (base && !/^https?:\/\//i.test(base)) {
@@ -20,16 +64,31 @@ function normalizeBase(raw: string): string {
   // Remove trailing slash
   base = base.replace(/\/$/, '');
   try {
-    // Validate URL
-    // eslint-disable-next-line no-new
     new URL(base || '');
     return base;
   } catch {
-    return 'http://localhost:3000';
+    // If normalization fails, just use what we have
+    return base || getBackendURL();
   }
 }
 
-export const API_BASE_URL = normalizeBase(explicitEnv || extraApiBase || 'http://localhost:3000');
+// Get the final API base URL - env variable has priority, then app.json
+// BUT: Override with localhost if running on web (avoids firewall issues)
+let configuredURL = explicitEnv || extraApiBase;
+
+// For web platform, always use localhost to avoid firewall issues
+if (Platform.OS === 'web') {
+  console.log('🌐 Running on WEB - using localhost to avoid firewall');
+  configuredURL = `http://localhost:${backendPort}`;
+} else if (!configuredURL) {
+  configuredURL = getBackendURL();
+}
+
+export const API_BASE_URL = normalizeBase(configuredURL || `http://localhost:${backendPort}`);
+
+console.log('🌐 API Base URL:', API_BASE_URL);
+console.log('📱 Platform:', Platform.OS);
+console.log('🔧 Config check:', { explicitEnv, extraApiBase, backendPort });
 
 
 type FetchOptions = {
@@ -41,26 +100,71 @@ type FetchOptions = {
 
 export async function apiFetch<T>(path: string, opts: FetchOptions = {}): Promise<T> {
   const { method = 'GET', body, token, headers = {} } = opts;
-  const url = `${API_BASE_URL}${path.startsWith('/') ? path : `/${path}`}`;
   
-  const res = await fetch(url, {
-    method,
-    headers: {
-      'Content-Type': 'application/json',
-      ...(token ? { Authorization: `Bearer ${token}` } : {}),
-      ...headers,
-    },
-    ...(body ? { body: JSON.stringify(body) } : {}),
-  });
-
-  const json = await res.json().catch(() => ({}));
-  
-  if (!res.ok) {
-    const message = (json && (json.message || json.error)) || `Request failed: ${res.status}`;
-    throw new Error(message);
+  // Validate API_BASE_URL is properly formatted
+  if (!API_BASE_URL || typeof API_BASE_URL !== 'string') {
+    console.error('❌ API_BASE_URL is invalid:', API_BASE_URL);
+    throw new Error('API base URL is not configured. Check your .env file or app.json');
   }
   
-  return json as T;
+  // Ensure URL is properly formatted
+  const baseUrl = API_BASE_URL.trim();
+  if (!baseUrl.startsWith('http://') && !baseUrl.startsWith('https://')) {
+    console.error('❌ API_BASE_URL missing protocol:', baseUrl);
+    throw new Error(`Invalid API base URL: ${baseUrl}. Must start with http:// or https://`);
+  }
+  
+  const url = `${baseUrl}${path.startsWith('/') ? path : `/${path}`}`;
+  
+  console.log(`🌐 API Request: ${method} ${url}`);
+  console.log('📦 Request body:', body);
+  console.log('🔧 API_BASE_URL:', API_BASE_URL);
+  
+  try {
+    const res = await fetch(url, {
+      method,
+      headers: {
+        'Content-Type': 'application/json',
+        'Accept': 'application/json',
+        ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        ...headers,
+      },
+      ...(body ? { body: JSON.stringify(body) } : {}),
+    });
+
+    console.log(`📡 Response status: ${res.status}`);
+    
+    let json;
+    try {
+      const text = await res.text();
+      json = text ? JSON.parse(text) : {};
+    } catch (parseError) {
+      console.error('❌ Failed to parse response:', parseError);
+      throw new Error(`Server returned invalid JSON. Status: ${res.status}`);
+    }
+    
+    if (!res.ok) {
+      const message = (json && (json.message || json.error)) || `Request failed: ${res.status}`;
+      console.error(`❌ API Error: ${message}`);
+      throw new Error(message);
+    }
+    
+    console.log('✅ API Success');
+    return json as T;
+  } catch (error: any) {
+    console.error('❌ Network Error:', error);
+    
+    // More helpful error messages
+    if (error.message?.includes('Network request failed') || error.message?.includes('Failed to fetch')) {
+      throw new Error(`Cannot connect to backend at ${API_BASE_URL}. Make sure:
+1. Backend is running on port 3000
+2. Backend is listening on 0.0.0.0 (not localhost)
+3. Phone and computer are on same WiFi network
+4. Firewall allows connections on port 3000`);
+    }
+    
+    throw error;
+  }
 }
 
 export type LoginResponse = {
@@ -211,10 +315,16 @@ const authenticatedFetch = async <T>(path: string, opts: FetchOptions = {}): Pro
 };
 
 export const AuthApi = {
-  login: (identifier: string, password: string, tenantId?: string) =>
+  login: (identifier: string, password: string, tenantId: string) =>
     apiFetch<LoginResponse>('/api/auth/login', {
       method: 'POST',
-      body: tenantId ? { identifier, password, tenantId } : { identifier, password },
+      body: { identifier, password, tenantId },
+    }),
+
+  loginSuperAdmin: (identifier: string, password: string) =>
+    apiFetch<LoginResponse>('/api/auth/login-super-admin', {
+      method: 'POST',
+      body: { identifier, password },
     }),
 
   register: (payload: {
@@ -243,6 +353,39 @@ export const TenantApi = {
     authenticatedFetch<TenantStatsResponse>(`/api/tenants/${tenantId}/stats`, { method: 'GET' }),
 };
 
+export type WidgetPermissions = {
+  email?: {
+    sendAllowed?: boolean;
+    requiresVerification?: boolean;
+    logInAudit?: boolean;
+  };
+  phone?: {
+    callAllowed?: boolean;
+    smsAllowed?: boolean;
+    whatsappAllowed?: boolean;
+  };
+  location?: {
+    viewAllowed?: boolean;
+    showCurrentLocation?: boolean;
+    showDistance?: boolean;
+  };
+};
+
+export type ViewConfig = {
+  viewType?: 'object' | 'form' | 'list' | 'detail' | 'wizard';
+  formLayout?: 'column' | 'row' | 'grid';
+  sections?: Array<{
+    title: string;
+    description?: string;
+    fields: string[];
+  }>;
+  actions?: Array<{
+    id: string;
+    label: string;
+    type?: 'submit' | 'cancel' | 'primary' | 'secondary';
+  }>;
+};
+
 export type Schema = {
   _id: string;
   tenantId: string;
@@ -255,6 +398,9 @@ export type Schema = {
     required?: string[];
     additionalProperties?: boolean;
   };
+  fieldMapping?: Record<string, string>;
+  widgetPermissions?: WidgetPermissions;
+  viewConfig?: ViewConfig;
   version: string;
   isActive: boolean;
   relationships: any[];
@@ -414,6 +560,51 @@ export const DynamicDataApi = {
   
   getRecordCount: (schemaName: string) => 
     authenticatedFetch<{ success: boolean; message: string; data: { count: number }; timestamp: string }>(`/api/data/${schemaName}/count`, { method: 'GET' }),
+};
+
+export type ViewDefinition = {
+  id: string;
+  title: string;
+  layout?: 'column' | 'row' | 'grid';
+  roleVisibility?: string[];
+  widgets: any[];
+  options?: {
+    showFieldHints?: boolean;
+  };
+  defaultEndpoint?: string;
+  createdAt?: string;
+  updatedAt?: string;
+};
+
+export type ViewResponse = {
+  success: boolean;
+  message: string;
+  data: ViewDefinition;
+  timestamp: string;
+};
+
+export type ViewsResponse = {
+  success: boolean;
+  message: string;
+  data: ViewDefinition[];
+  timestamp: string;
+};
+
+export const ViewApi = {
+  getView: (viewId: string) => 
+    authenticatedFetch<ViewResponse>(`/api/views/${viewId}`, { method: 'GET' }),
+  
+  getAllViews: () => 
+    authenticatedFetch<ViewsResponse>('/api/views', { method: 'GET' }),
+  
+  createView: (viewData: ViewDefinition) => 
+    authenticatedFetch<ViewResponse>('/api/views', { method: 'POST', body: viewData }),
+  
+  updateView: (viewId: string, viewData: Partial<ViewDefinition>) => 
+    authenticatedFetch<ViewResponse>(`/api/views/${viewId}`, { method: 'PUT', body: viewData }),
+  
+  deleteView: (viewId: string) => 
+    authenticatedFetch<{ success: boolean; message: string; data: null; timestamp: string }>(`/api/views/${viewId}`, { method: 'DELETE' }),
 };
 
 

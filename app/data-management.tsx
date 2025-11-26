@@ -78,7 +78,7 @@ const DataManagementScreen = () => {
   );
 
   const handleCreateRecord = () => {
-    setShowCreateModal(true);
+    router.push(`/create-record?schemaName=${selectedSchema}`);
   };
 
   const handleEditRecord = (record: any) => {
@@ -220,69 +220,7 @@ const DataManagementScreen = () => {
     </View>
   );
 
-  const CreateRecordModal = () => (
-    <Modal
-      visible={showCreateModal}
-      animationType="slide"
-      presentationStyle="pageSheet"
-    >
-      <View style={{ flex: 1, backgroundColor: '#1F2937' }}>
-        <View className="flex-row justify-between items-center px-6 pt-14 pb-6">
-          <TouchableOpacity onPress={() => setShowCreateModal(false)}>
-            <Text className="text-blue-500 text-lg">Cancel</Text>
-          </TouchableOpacity>
-          <Text className="text-white text-lg font-semibold">Create Record</Text>
-          <TouchableOpacity>
-            <Text className="text-blue-500 text-lg font-semibold">Save</Text>
-          </TouchableOpacity>
-        </View>
-
-        <ScrollView className="flex-1 px-6">
-          <View className="space-y-6">
-            <View>
-              <Text className="text-white font-medium mb-2">Name</Text>
-              <TextInput
-                className="bg-gray-800 rounded-xl px-4 py-3 text-white"
-                placeholder="Enter product name"
-                placeholderTextColor="#6B7280"
-              />
-            </View>
-
-            <View>
-              <Text className="text-white font-medium mb-2">Price</Text>
-              <TextInput
-                className="bg-gray-800 rounded-xl px-4 py-3 text-white"
-                placeholder="Enter price"
-                placeholderTextColor="#6B7280"
-                keyboardType="numeric"
-              />
-            </View>
-
-            <View>
-              <Text className="text-white font-medium mb-2">Category</Text>
-              <TextInput
-                className="bg-gray-800 rounded-xl px-4 py-3 text-white"
-                placeholder="Enter category"
-                placeholderTextColor="#6B7280"
-              />
-            </View>
-
-            <View>
-              <Text className="text-white font-medium mb-2">In Stock</Text>
-              <View className="flex-row space-x-4">
-                <TouchableOpacity className="bg-green-500/20 px-4 py-3 rounded-xl flex-1">
-                  <Text className="text-green-400 font-medium text-center">Yes</Text>
-                </TouchableOpacity>
-                <TouchableOpacity className="bg-gray-800 px-4 py-3 rounded-xl flex-1">
-                  <Text className="text-gray-400 font-medium text-center">No</Text>
-                </TouchableOpacity>
-              </View>
-            </View>
-          </View>
-        </ScrollView>
-      </View>
-    </Modal>
-  );
+  // CreateRecordModal is now replaced by /create-record route
 
   const FilterModal = () => (
     <Modal
@@ -467,7 +405,6 @@ const DataManagementScreen = () => {
           </View>
         </ScrollView>
 
-        <CreateRecordModal />
         <FilterModal />
       </View>
     </ImageBackground>

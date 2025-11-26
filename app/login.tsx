@@ -21,6 +21,7 @@ const LoginScreen = () => {
   const [tenantId, setTenantId] = useState('');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loginMode, setLoginMode] = useState<'regular' | 'superadmin'>('regular');
   const router = useRouter();
 
   const handleLogin = async () => {
@@ -29,9 +30,29 @@ const LoginScreen = () => {
       setError('Email and password are required');
       return;
     }
-    // Backend often requires tenantId for non-system users
+    
+    // Super Admin login uses separate endpoint
+    if (loginMode === 'superadmin') {
+      setLoading(true);
+      try {
+        const res = await AuthApi.loginSuperAdmin(email, password);
+        const token = res.data.token;
+        const user = res.data.user;
+        await SecureStore.setItemAsync('auth_token', token, { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK });
+        await SecureStore.setItemAsync('auth_user', JSON.stringify(user), { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK });
+        await SecureStore.setItemAsync('login_mode', loginMode, { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK });
+        router.push('/menu');
+      } catch (e: any) {
+        setError(e?.message || 'Login failed');
+      } finally {
+        setLoading(false);
+      }
+      return;
+    }
+    
+    // Regular user login requires tenantId
     if (!tenantId) {
-      setError('Tenant ID is required');
+      setError('Tenant ID is required for regular users');
       return;
     }
     setLoading(true);
@@ -39,9 +60,9 @@ const LoginScreen = () => {
       const res = await AuthApi.login(email, password, tenantId);
       const token = res.data.token;
       const user = res.data.user;
-      // Store securely
       await SecureStore.setItemAsync('auth_token', token, { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK });
       await SecureStore.setItemAsync('auth_user', JSON.stringify(user), { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK });
+      await SecureStore.setItemAsync('login_mode', loginMode, { keychainAccessible: SecureStore.AFTER_FIRST_UNLOCK });
       router.push('/menu');
     } catch (e: any) {
       setError(e?.message || 'Login failed');
@@ -70,6 +91,28 @@ const LoginScreen = () => {
 
             {/* Main Content */}
             <View className="px-6 pb-8">
+              {/* Login Mode Toggle */}
+              <View className="mb-6">
+                <View className="bg-white/10 rounded-xl p-1 flex-row">
+                  <TouchableOpacity
+                    className={`flex-1 py-3 rounded-lg ${loginMode === 'regular' ? 'bg-blue-600' : ''}`}
+                    onPress={() => setLoginMode('regular')}
+                  >
+                    <Text className={`text-center font-medium ${loginMode === 'regular' ? 'text-white' : 'text-white/80'}`}>
+                      Regular User
+                    </Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    className={`flex-1 py-3 rounded-lg ${loginMode === 'superadmin' ? 'bg-blue-600' : ''}`}
+                    onPress={() => setLoginMode('superadmin')}
+                  >
+                    <Text className={`text-center font-medium ${loginMode === 'superadmin' ? 'text-white' : 'text-white/80'}`}>
+                      Super Admin
+                    </Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+
               {/* Login Form Container with Opacity */}
               <View className="bg-black/30 backdrop-blur-sm rounded-2xl p-8">
                 <Text className="text-white text-3xl font-bold mb-2 text-center">
@@ -99,24 +142,26 @@ const LoginScreen = () => {
                   </View>
                 </View>
 
-                {/* Tenant ID (optional for system admin) */}
-                <View className="mb-6">
-                  <Text className="text-white text-sm font-medium mb-2">
-                    Tenant ID
-                  </Text>
-                  <View className="bg-white/10 rounded-xl px-4 py-4 flex-row items-center">
-                    <Ionicons name="business-outline" size={20} color="white" />
-                    <TextInput
-                      className="flex-1 ml-3 text-white text-base"
-                      placeholder="Enter tenant id (e.g. test-tenant)"
-                      placeholderTextColor="rgba(255,255,255,0.6)"
-                      value={tenantId}
-                      onChangeText={setTenantId}
-                      autoCapitalize="none"
-                      autoCorrect={false}
-                    />
+                {/* Tenant ID (only for regular users) */}
+                {loginMode === 'regular' && (
+                  <View className="mb-6">
+                    <Text className="text-white text-sm font-medium mb-2">
+                      Tenant ID
+                    </Text>
+                    <View className="bg-white/10 rounded-xl px-4 py-4 flex-row items-center">
+                      <Ionicons name="business-outline" size={20} color="white" />
+                      <TextInput
+                        className="flex-1 ml-3 text-white text-base"
+                        placeholder="Enter tenant id (e.g. test-tenant)"
+                        placeholderTextColor="rgba(255,255,255,0.6)"
+                        value={tenantId}
+                        onChangeText={setTenantId}
+                        autoCapitalize="none"
+                        autoCorrect={false}
+                      />
+                    </View>
                   </View>
-                </View>
+                )}
 
                 {/* Password Input */}
                 <View className="mb-8">
@@ -191,6 +236,17 @@ const LoginScreen = () => {
                   <TouchableOpacity className="py-4">
                     <Text className="text-white/80 text-center text-sm">
                       ← Back to Home
+                    </Text>
+                  </TouchableOpacity>
+                </Link>
+              </View>
+
+              {/* Debug: Test Connection */}
+              <View className="mt-4">
+                <Link href="/test-connection" asChild>
+                  <TouchableOpacity className="py-2">
+                    <Text className="text-white/60 text-center text-xs">
+                      🧪 Test Network Connection
                     </Text>
                   </TouchableOpacity>
                 </Link>

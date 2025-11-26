@@ -19,6 +19,10 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
 import { SchemaApi, Schema, DynamicDataApi, SchemaRecord, SchemaStats } from '../src/utils/api';
+import SchemaFormPreview from './components/SchemaFormPreview';
+import WidgetPermissionSummary from './components/WidgetPermissionSummary';
+import SchemaEntriesView from './components/SchemaEntriesView';
+import SchemaUpdateModal from './components/SchemaUpdateModal';
 
 const { width: screenWidth, height: screenHeight } = Dimensions.get('window');
 
@@ -310,18 +314,19 @@ const SchemaDetailScreen = () => {
   };
 
   const handleUpdate = () => {
-    if (schema) {
-      setUpdateSchemaForm({
-        displayName: schema.displayName,
-        description: schema.description,
-        jsonSchema: schema.jsonSchema
-      });
-      setJsonSchemaText(JSON.stringify(schema.jsonSchema, null, 2));
-      setSchemaEditMode('form'); // Default to form view for better UX
-      setJsonValidationError(null);
-      setLocalSchemaChanges(schema.jsonSchema);
-      setHasUnsavedChanges(false);
-      setShowUpdateSchemaModal(true);
+    setShowUpdateSchemaModal(true);
+  };
+
+  const handleUpdateSave = async (updateData: any) => {
+    if (!schemaName) return;
+
+    try {
+      await SchemaApi.updateSchema(schemaName as string, updateData);
+      Alert.alert('Success', 'Schema updated successfully!');
+      setShowUpdateSchemaModal(false);
+      await fetchSchemaDetails();
+    } catch (error: any) {
+      throw error; // Let the modal handle the error display
     }
   };
 
@@ -645,11 +650,9 @@ const SchemaDetailScreen = () => {
       // Convert form data to proper types
       const convertedData = convertFormDataToTypes(createForm, schema);
       
-      await DynamicDataApi.createRecord(schemaName as string, convertedData);
-      Alert.alert("Success", "Entry created successfully!");
-      setCreateForm({});
-      setShowCreateModal(false);
-      await fetchSchemaEntries();
+      // Redirect to create-record screen with dynamic widgets
+      router.push(`/create-record?schemaName=${schemaName}`);
+      return; // Don't create directly, let the create-record screen handle it
     } catch (error: any) {
       console.error('Create entry error:', error);
       Alert.alert("Error", error.message || "Failed to create entry");
@@ -871,6 +874,7 @@ const SchemaDetailScreen = () => {
               </View>
             </View>
           </View>
+
         </LinearGradient>
       </TouchableOpacity>
     </View>
@@ -1263,21 +1267,18 @@ const SchemaDetailScreen = () => {
   );
 
 
-  const SchemaEntries = () => (
-    <View className="mb-6">
-      <View className="flex-row justify-between items-center mb-4">
-        <Text className="text-white text-lg font-semibold">Schema Entries</Text>
-        <TouchableOpacity onPress={() => setShowCreateModal(true)}>
-          <Text className="text-blue-500 text-sm">+ Add Entry</Text>
-        </TouchableOpacity>
-      </View>
-
-      {entriesLoading ? (
+  const SchemaEntries = () => {
+    if (entriesLoading) {
+      return (
         <View className="bg-gray-800/50 rounded-2xl p-8 items-center">
           <Text className="text-white text-lg mb-2">Loading entries...</Text>
           <Text className="text-gray-400 text-sm">Fetching schema data</Text>
         </View>
-      ) : entriesError ? (
+      );
+    }
+
+    if (entriesError) {
+      return (
         <View className="bg-gray-800/50 rounded-2xl p-8 items-center">
           <Ionicons name="alert-circle-outline" size={48} color="#ef4444" />
           <Text className="text-red-400 text-lg mb-2 mt-4">Failed to load entries</Text>
@@ -1289,27 +1290,20 @@ const SchemaDetailScreen = () => {
             <Text className="text-white font-semibold">Retry</Text>
           </TouchableOpacity>
         </View>
-      ) : entries.length === 0 ? (
-        <View className="bg-gray-800/50 rounded-2xl p-8 items-center">
-          <Ionicons name="document-outline" size={48} color="#6B7280" />
-          <Text className="text-gray-400 text-lg font-medium mt-4">No entries found</Text>
-          <Text className="text-gray-500 text-sm text-center mt-2">
-            Create your first entry to get started
-          </Text>
-          <TouchableOpacity 
-            onPress={() => setShowCreateModal(true)}
-            className="bg-blue-600 px-6 py-3 rounded-full mt-4"
-          >
-            <Text className="text-white font-semibold">Create Entry</Text>
-          </TouchableOpacity>
-        </View>
-      ) : (
-        entries.map((item) => (
-        <EntryItem key={item._id} item={item} />
-        ))
-      )}
-    </View>
-  );
+      );
+    }
+
+    if (!schema) return null;
+
+    return (
+      <SchemaEntriesView
+        schema={schema}
+        entries={entries}
+        onRefresh={fetchSchemaEntries}
+        schemaName={schemaName as string}
+      />
+    );
+  };
 
   const TabButton = ({ title, index, icon }: { title: string; index: number; icon: string }) => (
     <TouchableOpacity
@@ -1442,416 +1436,6 @@ const SchemaDetailScreen = () => {
     );
   }, [showEditModal, schema, editForm, formErrors]);
 
-  // Update Schema Modal Component
-  const UpdateSchemaModal = React.useMemo(() => {
-    return (
-      <Modal
-        visible={showUpdateSchemaModal}
-        animationType="slide"
-        presentationStyle="pageSheet"
-      >
-        <KeyboardAvoidingView 
-          style={{ flex: 1, backgroundColor: '#1F2937' }}
-          behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-          keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
-        >
-          <View className="flex-row justify-between items-center px-6 pt-14 pb-6 border-b border-gray-700/50">
-            <TouchableOpacity 
-              onPress={() => {
-                setShowUpdateSchemaModal(false);
-                setUpdateSchemaForm({});
-                setJsonSchemaText('');
-                setJsonValidationError(null);
-              }}
-              className="bg-gray-700/50 px-4 py-2 rounded-xl"
-            >
-              <Text className="text-gray-300 text-lg font-medium">Cancel</Text>
-            </TouchableOpacity>
-            <Text className="text-white text-xl font-bold">Update Schema</Text>
-            <TouchableOpacity 
-              onPress={handleUpdateSchema}
-              className="bg-indigo-600 px-6 py-2 rounded-xl"
-            >
-              <Text className="text-white text-lg font-semibold">Save</Text>
-            </TouchableOpacity>
-          </View>
-
-          {/* Mode Toggle */}
-          <View className="px-6 mb-6">
-            <View className="bg-gray-800/60 rounded-2xl p-2 flex-row border border-gray-600/50">
-              <TouchableOpacity
-                className={`flex-1 py-3 rounded-xl ${schemaEditMode === 'json' ? 'bg-indigo-600' : 'bg-transparent'}`}
-                onPress={() => setSchemaEditMode('json')}
-              >
-                <Text className={`text-center font-semibold ${schemaEditMode === 'json' ? 'text-white' : 'text-gray-300'}`}>
-                  JSON View
-                </Text>
-              </TouchableOpacity>
-              <TouchableOpacity
-                className={`flex-1 py-3 rounded-xl ${schemaEditMode === 'form' ? 'bg-indigo-600' : 'bg-transparent'}`}
-                onPress={() => setSchemaEditMode('form')}
-              >
-                <Text className={`text-center font-semibold ${schemaEditMode === 'form' ? 'text-white' : 'text-gray-300'}`}>
-                  Form View
-                </Text>
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <ScrollView className="flex-1 px-6">
-            {/* Basic Info Fields */}
-            <View className="space-y-6 mb-6">
-              <View>
-                <Text className="text-gray-200 font-semibold mb-3 text-lg">Display Name</Text>
-                <TextInput
-                  className="bg-gray-800/60 rounded-2xl px-5 py-4 text-white border border-gray-600/50 text-lg"
-                  placeholder="Enter display name"
-                  placeholderTextColor="#9CA3AF"
-                  value={updateSchemaForm.displayName || ''}
-                  onChangeText={(text) => setUpdateSchemaForm(prev => ({ ...prev, displayName: text }))}
-                />
-              </View>
-
-              <View>
-                <Text className="text-gray-200 font-semibold mb-3 text-lg">Description</Text>
-                <TextInput
-                  className="bg-gray-800/60 rounded-2xl px-5 py-4 text-white border border-gray-600/50"
-                  placeholder="Enter description"
-                  placeholderTextColor="#9CA3AF"
-                  value={updateSchemaForm.description || ''}
-                  onChangeText={(text) => setUpdateSchemaForm(prev => ({ ...prev, description: text }))}
-                  multiline
-                  numberOfLines={4}
-                />
-              </View>
-            </View>
-
-            {/* JSON View */}
-            {schemaEditMode === 'json' && (
-              <View>
-                <View className="flex-row justify-between items-center mb-6">
-                  <Text className="text-gray-200 font-bold text-xl">JSON Schema Editor</Text>
-                  <View className="flex-row space-x-3">
-                    <TouchableOpacity 
-                      onPress={handleValidateSchema}
-                      className="bg-emerald-600 px-5 py-3 rounded-xl shadow-lg"
-                    >
-                      <Text className="text-white text-sm font-semibold">Validate</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity 
-                      onPress={() => {
-                        const sampleSchema = {
-                          "type": "object",
-                          "properties": {
-                            "name": {
-                              "type": "string",
-                              "description": "Item name"
-                            },
-                            "price": {
-                              "type": "number",
-                              "minimum": 0,
-                              "description": "Item price"
-                            },
-                            "description": {
-                              "type": "string",
-                              "description": "Optional description"
-                            }
-                          },
-                          "required": ["name", "price"],
-                          "additionalProperties": false
-                        };
-                        setJsonSchemaText(JSON.stringify(sampleSchema, null, 2));
-                      }}
-                      className="bg-indigo-600 px-5 py-3 rounded-xl shadow-lg"
-                    >
-                      <Text className="text-white text-sm font-semibold">Sample</Text>
-                    </TouchableOpacity>
-                  </View>
-                </View>
-                
-                <JSONEditor
-                  value={jsonSchemaText}
-                  onChange={setJsonSchemaText}
-                  placeholder="Enter your JSON schema here..."
-                />
-                
-                {jsonValidationError && (
-                  <View className="bg-red-900/30 border border-red-500/50 rounded-2xl p-4 mt-4">
-                    <View className="flex-row items-center mb-3">
-                      <Ionicons name="alert-circle" size={20} color="#EF4444" />
-                      <Text className="text-red-400 font-bold ml-3 text-lg">Validation Error</Text>
-                    </View>
-                    <Text className="text-red-200 text-sm leading-relaxed">{jsonValidationError}</Text>
-                  </View>
-                )}
-              </View>
-            )}
-
-            {/* Form View */}
-            {schemaEditMode === 'form' && (
-              <View>
-                <View className="flex-row justify-between items-center mb-6">
-                  <Text className="text-gray-200 font-bold text-xl">Schema Fields</Text>
-                  <View className="bg-indigo-600/20 px-4 py-2 rounded-xl border border-indigo-500/30">
-                    <Text className="text-indigo-300 text-sm font-semibold">
-                      {localSchemaChanges?.properties ? Object.keys(localSchemaChanges.properties).length : 0} fields
-                    </Text>
-                  </View>
-                </View>
-                
-                {localSchemaChanges?.properties && Object.entries(localSchemaChanges.properties).map(([fieldName, fieldDef]: [string, any]) => (
-                  <View key={fieldName} className="bg-gray-800/60 rounded-2xl p-5 mb-4 border border-gray-600/50 shadow-lg">
-                    {editingField === fieldName ? (
-                      // Edit Field Mode
-                      <View>
-                        <View className="flex-row justify-between items-center mb-4">
-                          <Text className="text-white font-semibold text-lg">Edit Field: {fieldName}</Text>
-                          <TouchableOpacity 
-                            onPress={() => {
-                              setEditingField(null);
-                              setEditingFieldData(null);
-                            }}
-                            className="bg-gray-600/80 px-4 py-2 rounded-xl"
-                          >
-                            <Text className="text-gray-200 text-sm font-medium">Cancel</Text>
-                          </TouchableOpacity>
-                        </View>
-                        
-                        <View className="space-y-5">
-                          <View>
-                            <Text className="text-gray-200 font-medium mb-3">Field Type</Text>
-                            <View className="bg-gray-700/50 rounded-xl p-1 flex-row">
-                              {['string', 'number', 'integer', 'boolean'].map((type) => (
-                                <TouchableOpacity
-                                  key={type}
-                                  className={`flex-1 py-3 rounded-lg ${editingFieldData?.type === type ? 'bg-indigo-600' : 'bg-transparent'}`}
-                                  onPress={() => setEditingFieldData((prev: any) => ({ ...prev, type }))}
-                                >
-                                  <Text className={`text-center text-sm font-medium ${editingFieldData?.type === type ? 'text-white' : 'text-gray-300'}`}>
-                                    {type}
-                                  </Text>
-                                </TouchableOpacity>
-                              ))}
-                            </View>
-                          </View>
-                          
-                          <View>
-                            <Text className="text-gray-200 font-medium mb-3">Description</Text>
-                            <TextInput
-                              className="bg-gray-700/50 rounded-xl px-4 py-3 text-white border border-gray-600/50"
-                              placeholder="Enter field description"
-                              placeholderTextColor="#9CA3AF"
-                              value={editingFieldData?.description || ''}
-                              onChangeText={(text) => setEditingFieldData((prev: any) => ({ ...prev, description: text }))}
-                              multiline
-                              numberOfLines={3}
-                            />
-                          </View>
-                          
-                          <View>
-                            <TouchableOpacity
-                              className={`flex-row items-center p-4 rounded-xl border ${editingFieldData?.required ? 'bg-indigo-600/20 border-indigo-500' : 'bg-gray-700/50 border-gray-600/50'}`}
-                              onPress={() => setEditingFieldData((prev: any) => ({ ...prev, required: !prev.required }))}
-                            >
-                              <Ionicons 
-                                name={editingFieldData?.required ? "checkmark-circle" : "ellipse-outline"} 
-                                size={22} 
-                                color={editingFieldData?.required ? "#6366F1" : "#9CA3AF"} 
-                              />
-                              <Text className="text-white font-medium ml-3">Required Field</Text>
-                            </TouchableOpacity>
-                          </View>
-                          
-                          <View className="flex-row space-x-3 pt-2">
-                            <TouchableOpacity 
-                              onPress={() => handleUpdateField(fieldName, editingFieldData)}
-                              className="flex-1 bg-emerald-600 rounded-xl py-4 items-center shadow-lg"
-                            >
-                              <Text className="text-white font-semibold">Save Changes</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity 
-                              onPress={() => handleDeleteField(fieldName)}
-                              className="flex-1 bg-rose-600 rounded-xl py-4 items-center shadow-lg"
-                            >
-                              <Text className="text-white font-semibold">Delete Field</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      </View>
-                    ) : (
-                      // Display Mode
-                      <View>
-                        <View className="flex-row justify-between items-start">
-                          <View className="flex-1">
-                            <View className="flex-row items-center mb-2">
-                              <Text className="text-white text-lg font-semibold mr-3">{fieldName}</Text>
-                              <View className={`px-3 py-1 rounded-full`} style={{ backgroundColor: getFieldTypeColor(fieldDef.type) + '25' }}>
-                                <Text className={`text-xs font-semibold`} style={{ color: getFieldTypeColor(fieldDef.type) }}>
-                                  {fieldDef.type}
-                                </Text>
-                              </View>
-                            </View>
-                            {fieldDef.description && (
-                              <Text className="text-gray-300 text-sm mb-3 leading-relaxed">{fieldDef.description}</Text>
-                            )}
-                            <View className="flex-row items-center">
-                              <Ionicons 
-                                name={localSchemaChanges?.required?.includes(fieldName) ? "checkmark-circle" : "ellipse-outline"} 
-                                size={18} 
-                                color={localSchemaChanges?.required?.includes(fieldName) ? "#10B981" : "#6B7280"} 
-                              />
-                              <Text className="text-gray-300 text-sm ml-2 font-medium">
-                                {localSchemaChanges?.required?.includes(fieldName) ? 'Required' : 'Optional'}
-                              </Text>
-                            </View>
-                          </View>
-                          <View className="flex-row space-x-3">
-                            <TouchableOpacity 
-                              onPress={() => {
-                                setEditingField(fieldName);
-                                setEditingFieldData({ 
-                                  type: fieldDef.type,
-                                  description: fieldDef.description || '',
-                                  required: localSchemaChanges?.required?.includes(fieldName) || false
-                                });
-                              }}
-                              className="px-3 py-2"
-                              activeOpacity={0.7}
-                            >
-                              <Ionicons name="create-outline" size={20} color="#60A5FA" />
-                            </TouchableOpacity>
-                            <TouchableOpacity 
-                              onPress={() => handleDeleteField(fieldName)}
-                              className="px-3 py-2"
-                              activeOpacity={0.7}
-                            >
-                              <Ionicons name="trash-outline" size={20} color="#F87171" />
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-                      </View>
-                    )}
-                  </View>
-                ))}
-                
-                {!showAddFieldForm ? (
-                  <TouchableOpacity 
-                    onPress={() => { setShowAddFieldForm(true); if (draftFields.length === 0) addEmptyDraft(); }}
-                    className="bg-gradient-to-r from-indigo-600 to-purple-600 rounded-2xl p-6 items-center border-2 border-dashed border-indigo-400/50 shadow-lg"
-                    activeOpacity={0.8}
-                  >
-                    <View className="w-12 h-12 rounded-full bg-white/20 items-center justify-center mb-3">
-                      <Ionicons name="add-outline" size={28} color="#fff" />
-                    </View>
-                    <Text className="text-white font-bold text-lg mb-1">Add New Field</Text>
-                    <Text className="text-indigo-200 text-sm text-center">Click to add a new field to your schema</Text>
-                  </TouchableOpacity>
-                ) : (
-                  <View>
-                    {draftFields.map(d => (
-                      <View key={d.id} className="bg-indigo-900/30 rounded-2xl p-5 mb-4 border border-indigo-500/30">
-                        <View className="flex-row justify-between items-center mb-4">
-                          <Text className="text-white font-bold text-lg">New Field</Text>
-                          <View className="flex-row space-x-2">
-                            <TouchableOpacity onPress={() => removeDraft(d.id)} className="bg-gray-600/80 px-3 py-2 rounded-xl">
-                              <Text className="text-gray-200 text-sm font-medium">Remove</Text>
-                            </TouchableOpacity>
-                            <TouchableOpacity onPress={() => submitDraft(d.id)} className="bg-emerald-600 px-3 py-2 rounded-xl">
-                              <Text className="text-white text-sm font-medium">Add</Text>
-                            </TouchableOpacity>
-                          </View>
-                        </View>
-
-                        <View className="mb-3">
-                          <Text className="text-gray-200 font-semibold mb-2">Field Name *</Text>
-                          <TextInput
-                            className="bg-gray-800/60 rounded-2xl px-5 py-4 text-white border border-gray-600/50 text-base"
-                            placeholder="Enter field name"
-                            placeholderTextColor="#9CA3AF"
-                            value={d.fieldName}
-                            onChangeText={(text) => updateDraft(d.id, { fieldName: text })}
-                            autoCorrect={false}
-                            autoCapitalize="none"
-                            underlineColorAndroid="transparent"
-                          />
-                        </View>
-
-                        <View className="mb-3">
-                          <Text className="text-gray-200 font-semibold mb-2">Field Type *</Text>
-                          <View className="bg-gray-800/60 rounded-2xl p-2 flex-row border border-gray-600/50">
-                            {(['string','number','integer','boolean'] as const).map(type => (
-                              <Pressable key={type} className={`flex-1 py-3 rounded-xl ${d.fieldType === type ? 'bg-indigo-600' : 'bg-transparent'}`} onPress={() => updateDraft(d.id, { fieldType: type })} hitSlop={{top:8,bottom:8,left:8,right:8}}>
-                                <Text className={`text-center text-sm font-semibold ${d.fieldType === type ? 'text-white' : 'text-gray-300'}`}>{type}</Text>
-                              </Pressable>
-                            ))}
-                          </View>
-                        </View>
-
-                        <View className="mb-3">
-                          <Text className="text-gray-200 font-semibold mb-2">Description</Text>
-                          <TextInput
-                            className="bg-gray-800/60 rounded-2xl px-5 py-4 text-white border border-gray-600/50 text-base"
-                            placeholder="Enter field description"
-                            placeholderTextColor="#9CA3AF"
-                            value={d.fieldDescription}
-                            onChangeText={(text) => updateDraft(d.id, { fieldDescription: text })}
-                            multiline
-                            numberOfLines={3}
-                            textAlignVertical="top"
-                            autoCorrect={false}
-                            underlineColorAndroid="transparent"
-                          />
-                        </View>
-
-                        <View className="mb-1">
-                          <TouchableOpacity className={`flex-row items-center p-4 rounded-xl border ${d.isRequired ? 'bg-indigo-600/20 border-indigo-500' : 'bg-gray-800/60 border-gray-600/50'}`} onPress={() => updateDraft(d.id, { isRequired: !d.isRequired })} activeOpacity={0.7}>
-                            <Ionicons name={d.isRequired ? 'checkmark-circle' : 'ellipse-outline'} size={22} color={d.isRequired ? '#6366F1' : '#9CA3AF'} />
-                            <View className="ml-3">
-                              <Text className="text-white font-semibold text-base">Required Field</Text>
-                              <Text className="text-gray-300 text-sm">This field must be provided when creating entries</Text>
-                            </View>
-                          </TouchableOpacity>
-                        </View>
-                      </View>
-                    ))}
-
-                    <TouchableOpacity onPress={addEmptyDraft} className="bg-indigo-600/20 rounded-2xl p-4 items-center border border-indigo-500/40" activeOpacity={0.8}>
-                      <Text className="text-indigo-300 font-semibold">+ Add another field</Text>
-                    </TouchableOpacity>
-
-                    <View className="mt-4">
-                      <TouchableOpacity onPress={() => setShowAddFieldForm(false)} className="rounded-2xl p-4 items-center bg-gray-600" activeOpacity={0.8}>
-                        <Text className="text-white font-semibold">Close</Text>
-                      </TouchableOpacity>
-                    </View>
-                  </View>
-                )}
-                
-                {/* Save Changes Button */}
-                <View className="mt-6 pt-4 border-t border-gray-600/50">
-                  <TouchableOpacity 
-                    onPress={saveChanges}
-                    className={`rounded-2xl p-4 items-center shadow-lg ${hasUnsavedChanges ? 'bg-emerald-600' : 'bg-gray-600'}`}
-                    activeOpacity={0.8}
-                  >
-                    <Text className="text-white font-bold text-lg">
-                      {hasUnsavedChanges ? 'Save Changes' : 'No Changes to Save'}
-                    </Text>
-                    {hasUnsavedChanges && (
-                      <Text className="text-emerald-200 text-sm mt-1">
-                        Click to save your changes to the schema
-                      </Text>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            )}
-          </ScrollView>
-        </KeyboardAvoidingView>
-      </Modal>
-    );
-  }, [showUpdateSchemaModal, updateSchemaForm, schemaEditMode, jsonSchemaText, jsonValidationError, forceRefresh, editingField, editingFieldData, localSchemaChanges, hasUnsavedChanges, showAddFieldForm, draftFields]);
-
 
 
   return (
@@ -1934,15 +1518,60 @@ const SchemaDetailScreen = () => {
                   <TabButton title="Fields" index={0} icon="list-outline" />
                   <TabButton title="Entries" index={1} icon="document-outline" />
                   <TabButton title="Stats" index={2} icon="bar-chart-outline" />
+                  <TabButton title="Widgets" index={3} icon="sparkles-outline" />
                 </View>
               </View>
             </View>
           </View>
 
           {/* Tab Content */}
-          {activeTab === 0 && <SchemaFieldsTable />}
+          {activeTab === 0 && (
+            <>
+              <SchemaFormPreview
+                jsonSchema={schema?.jsonSchema}
+                viewConfig={schema?.viewConfig}
+                fieldMapping={schema?.fieldMapping}
+                title="Form Layout Preview"
+                description="Generated from view configuration"
+              />
+              <SchemaFieldsTable />
+            </>
+          )}
           {activeTab === 1 && <SchemaEntries />}
           {activeTab === 2 && <SchemaStatistics />}
+          {activeTab === 3 && (
+            <View className="mb-6">
+              <LinearGradient
+                colors={['#0f172a', '#111827', '#1e1b4b']}
+                start={{ x: 0, y: 0 }}
+                end={{ x: 1, y: 1 }}
+                style={{
+                  borderRadius: 24,
+                  padding: 20,
+                  borderWidth: 1,
+                  borderColor: 'rgba(148, 163, 184, 0.18)',
+                  shadowColor: 'rgba(15, 23, 42, 0.85)',
+                  shadowOffset: { width: 0, height: 14 },
+                  shadowOpacity: 0.45,
+                  shadowRadius: 26,
+                  elevation: 14,
+                }}
+              >
+                <View className="flex-row items-start mb-5">
+                  <View className="w-12 h-12 rounded-xl bg-blue-500/20 items-center justify-center mr-3">
+                    <Ionicons name="sparkles-outline" size={20} color="#60A5FA" />
+                  </View>
+                  <View className="flex-1">
+                    <Text className="text-white text-xl font-semibold">Widget Permissions</Text>
+                    <Text className="text-white/60 text-sm mt-1">
+                      Visual breakdown of available widget actions for this schema.
+                    </Text>
+                  </View>
+                </View>
+                <WidgetPermissionSummary widgetPermissions={schema.widgetPermissions} />
+              </LinearGradient>
+            </View>
+          )}
             </>
           ) : (
             <View className="bg-gray-800/50 rounded-2xl p-8 items-center mt-6">
@@ -1984,7 +1613,12 @@ const SchemaDetailScreen = () => {
         {/* Modals */}
         {CreateEntryModal}
         {EditEntryModal}
-        {UpdateSchemaModal}
+        <SchemaUpdateModal
+          visible={showUpdateSchemaModal}
+          schema={schema}
+          onClose={() => setShowUpdateSchemaModal(false)}
+          onSave={handleUpdateSave}
+        />
       </View>
     </ImageBackground>
   );
