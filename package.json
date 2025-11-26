@@ -43,6 +43,7 @@
     "expo-splash-screen": "~31.0.10",
     "expo-status-bar": "~3.0.8",
     "js-yaml": "^4.1.0",
+    "lucide-react-native": "^0.555.0",
     "nativewind": "^4.2.1",
     "prettier-plugin-tailwindcss": "^0.5.14",
     "react": "19.1.0",
