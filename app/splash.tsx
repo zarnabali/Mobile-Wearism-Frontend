@@ -1,123 +1,88 @@
-import React, { useState, useRef, useEffect } from 'react';
+import React from 'react';
 import {
   View,
   Text,
   TouchableOpacity,
-  ScrollView,
-  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
-import BackgroundImage from './components/BackgroundImage';
+import ImageCarousel, { CarouselItem } from './components/ImageCarousel';
 
-const { width } = Dimensions.get('window');
+// Carousel data with background images and text
+const carouselData: CarouselItem[] = [
+  {
+    backgroundImage: require('../assets/pictures/ai2.jpeg'),
+    title1: 'AI Knows Your Style,',
+    title2: 'You New Personal Stylist',
+    featureText: 'Get instant AI-powered outfit ratings. Upload your look and receive personalized feedback that helps you dress with confidence every single day.',
+  },
+  {
+    backgroundImage: require('../assets/pictures/wardrobe2.jpeg'),
+    title1: 'Your Digital Closet,',
+    title2: 'Infinite Outfits.',
+    featureText: 'Add items to your wardrobe and watch our AI create stunning outfit combinations tailored to your unique style. Never wonder "what should I wear?" again.',
+  },
+  {
+    backgroundImage: require('../assets/pictures/social3.jpeg'),
+    title1: 'Connect, Share,',
+    title2: 'Inspire.',
+    featureText: 'Join a vibrant fashion community. Post your looks, get inspired by others, and build connections with style enthusiasts who share your passion.',
+  },
+  {
+    backgroundImage: require('../assets/pictures/ai.jpeg'),
+    title1: 'Swap, Refresh,',
+    title2: 'Reinvent.',
+    featureText: 'Trade clothes with friends and discover new pieces without breaking the bank. Give your wardrobe a fresh look while reducing fashion waste.',
+  },
+  {
+    backgroundImage: require('../assets/pictures/shop.jpeg'),
+    title1: 'Sell Smart,',
+    title2: 'Reach Right.',
+    featureText: 'Register as a vendor and sell directly to users who actually need your items. Our AI matches your inventory with users wardrobe gaps for better sales.',
+  },
+  {
+    backgroundImage: require('../assets/pictures/shop2.jpeg'),
+    title1: 'Find Hidden Gems,',
+    title2: 'Elevate Your Style.',
+    featureText: 'Discover unique pieces that perfectly complement your wardrobe. Our smart recommendations help you find clothes that truly level up your fashion game.',
+  },
+];
 
 const SplashScreen = () => {
-  const [currentIndex, setCurrentIndex] = useState(0);
-  const scrollViewRef = useRef<ScrollView>(null);
-
-  const contentData = {
-    appName: 'Toolivo',
-    slogan: 'Dynamic by Design, Scalable by Nature.',
-    "features": [
-    "A next-gen platform that connects backend and frontend into one smooth, flexible, and secure system.",
-    "A platform that connects everything in one place.",
-    "Stay in sync and connected, even offline.",
-    "Gives safe and simple access for teams, customers, and businesses.",
-    "Built to grow with you, offering flexibility and reliability as you expand."
-  ]
-  };
-
-  useEffect(() => {
-    const interval = setInterval(() => {
-      setCurrentIndex((prevIndex) => {
-        const nextIndex = (prevIndex + 1) % contentData.features.length;
-        if (scrollViewRef.current) {
-          scrollViewRef.current.scrollTo({
-            x: nextIndex * width,
-            animated: true,
-          });
-        }
-        return nextIndex;
-      });
-    }, 3000);
-
-    return () => clearInterval(interval);
-  }, []);
-
-  const handleScroll = (event: any) => {
-    const contentOffset = event.nativeEvent.contentOffset;
-    const index = Math.round(contentOffset.x / width);
-    setCurrentIndex(index);
-  };
-
-  const renderDots = () => {
-    return (
-      <View className="flex-row justify-left items-center mt-2 ">
-        {contentData.features.map((_, index) => (
-          <View
-            key={index}
-            className={`w-2 h-2 rounded-full mx-1 ${
-              index === currentIndex ? 'bg-white' : 'bg-white/40'
-            }`}
-          />
-        ))}
-      </View>
-    );
-  };
-
   return (
-    <BackgroundImage>
-      <SafeAreaView className="flex-1">
+    <View className="flex-1">
+      <ImageCarousel items={carouselData} autoPlayInterval={4000} />
+
+      {/* Allow touches on children while keeping overlay positioning */}
+      <SafeAreaView className="absolute inset-0" pointerEvents="box-none">
         <View className="flex-1">
           {/* Header with App Name - Top */}
-          <View className="px-6 pt-8">
-            <Text className="text-white text-2xl font-bold">
-              {contentData.appName}
+          <View className="px-6 pt-8 pointer-events-auto">
+            <Text
+              className="text-white text-3xl font-light"
+              style={{ fontFamily: 'HelveticaNeue-Light' }}
+            >
+              Wearism
             </Text>
           </View>
 
           {/* Spacer to push content to bottom */}
           <View className="flex-1" />
 
-          {/* Main Content - Bottom */}
-          <View className="px-6 pb-8">
-            <Text className="text-white text-4xl font-bold leading-tight ">
-              Dynamic by Design,
-            </Text>
-            <Text className="text-blue-400 text-4xl font-bold leading-tight mb-2">
-              Scalable by Nature.
-            </Text>
-
-            {/* Feature Text Slider */}
-            <ScrollView
-              ref={scrollViewRef}
-              horizontal
-              pagingEnabled
-              showsHorizontalScrollIndicator={false}
-              onMomentumScrollEnd={handleScroll}
-              className=""
-            >
-              {contentData.features.map((feature, index) => (
-                <View key={index} style={{ width }}>
-                  <Text className="text-white/80 text-base leading-relaxed px-0">
-                    {feature}
-                  </Text>
-                </View>
-              ))}
-            </ScrollView>
-
-            {/* Navigation Dots */}
-            {renderDots()}
-
-            {/* Bottom Buttons */}
-            <View className="mt-8 space-y-4">
+          {/* Bottom Buttons */}
+          <View className="px-6 pb-8 pointer-events-auto">
+            {/* Added extra spacing between actions */}
+            <View className="space-y-6">
               <Link href="/login" asChild>
                 <TouchableOpacity
-                  className="bg-blue-800 py-4 rounded-full"
+                  className="bg-orange-500 py-4 rounded-full"
                   activeOpacity={0.8}
+                  style={{ backgroundColor: '#FF6B35' }}
                 >
-                  <Text className="text-white text-center text-lg font-semibold">
+                  <Text
+                    className="text-white text-center text-lg font-medium"
+                    style={{ fontFamily: 'HelveticaNeue-Medium' }}
+                  >
                     Login
                   </Text>
                 </TouchableOpacity>
@@ -125,10 +90,14 @@ const SplashScreen = () => {
 
               <Link href="/signup" asChild>
                 <TouchableOpacity
-                  className="py-4"
+                  className="py-4 border-2 border-orange-400 rounded-full mt-2"
                   activeOpacity={0.8}
+                  style={{ borderColor: '#FF6B35' }}
                 >
-                  <Text className="text-white shadow-2xl text-center text-lg">
+                  <Text
+                    className="text-orange-400 text-center text-lg font-medium"
+                    style={{ fontFamily: 'HelveticaNeue-Medium', color: '#FF6B35' }}
+                  >
                     Create an Account
                   </Text>
                 </TouchableOpacity>
@@ -137,7 +106,7 @@ const SplashScreen = () => {
           </View>
         </View>
       </SafeAreaView>
-    </BackgroundImage>
+    </View>
   );
 };
 

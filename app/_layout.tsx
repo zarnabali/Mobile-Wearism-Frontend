@@ -1,61 +1,63 @@
-import { useFonts } from 'expo-font';
-import { Stack } from 'expo-router';
-import * as SplashScreen from 'expo-splash-screen';
-import { useEffect } from 'react';
 import '../global.css';
-import { QueryProvider } from '../src/providers/QueryProvider';
+import { Stack } from 'expo-router';
+import { useEffect } from 'react';
+import { useFonts } from 'expo-font';
+import * as SplashScreen from 'expo-splash-screen';
+import { StatusBar } from 'expo-status-bar';
+import { VendorProvider } from './contexts/VendorContext';
 
-// Prevent the splash screen from auto-hiding before asset loading is complete.
+// Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
 
 export default function RootLayout() {
-  const [loaded, error] = useFonts({
-    'HelveticaNeue-UltraLight': require('../assets/fonts/helvetica-neue-5/HelveticaNeueUltraLight.otf'),
-    'HelveticaNeue-Thin': require('../assets/fonts/helvetica-neue-5/HelveticaNeueThin.otf'),
-    'HelveticaNeue-Light': require('../assets/fonts/helvetica-neue-5/HelveticaNeueLight.otf'),
-    'HelveticaNeue-Roman': require('../assets/fonts/helvetica-neue-5/HelveticaNeueRoman.otf'),
-    'HelveticaNeue-Medium': require('../assets/fonts/helvetica-neue-5/HelveticaNeueMedium.otf'),
-    'HelveticaNeue-Heavy': require('../assets/fonts/helvetica-neue-5/HelveticaNeueHeavy.otf'),
+  const [fontsLoaded, fontError] = useFonts({
+    'HelveticaNeue': require('../assets/fonts/helvetica-neue-5/HelveticaNeueRoman.otf'),
     'HelveticaNeue-Bold': require('../assets/fonts/helvetica-neue-5/HelveticaNeueBold.otf'),
+    'HelveticaNeue-Light': require('../assets/fonts/helvetica-neue-5/HelveticaNeueLight.otf'),
+    'HelveticaNeue-Italic': require('../assets/fonts/helvetica-neue-5/HelveticaNeueItalic.ttf'),
+    'HelveticaNeue-Medium': require('../assets/fonts/helvetica-neue-5/HelveticaNeueMedium.otf'),
+    'HelveticaNeue-Thin': require('../assets/fonts/helvetica-neue-5/HelveticaNeueThin.otf'),
+    'HelveticaNeue-UltraLight': require('../assets/fonts/helvetica-neue-5/HelveticaNeueUltraLight.otf'),
+    'HelveticaNeue-Heavy': require('../assets/fonts/helvetica-neue-5/HelveticaNeueHeavy.otf'),
     'HelveticaNeue-Black': require('../assets/fonts/helvetica-neue-5/HelveticaNeueBlack.otf'),
   });
 
-  // Expo Router uses Error Boundaries to catch errors in the navigation tree.
   useEffect(() => {
-    if (error) throw error;
-  }, [error]);
-
-  useEffect(() => {
-    if (loaded) {
+    if (fontsLoaded || fontError) {
       SplashScreen.hideAsync();
     }
-  }, [loaded]);
+  }, [fontsLoaded, fontError]);
 
-  if (!loaded) {
+  if (!fontsLoaded && !fontError) {
     return null;
   }
 
   return (
-    <QueryProvider>
-      <Stack>
-        <Stack.Screen name="index" options={{ title: 'Home' }} />
-        <Stack.Screen name="splash" options={{ headerShown: false }} />
-        <Stack.Screen name="login" options={{ headerShown: false }} />
-        <Stack.Screen name="signup" options={{ headerShown: false }} />
-        <Stack.Screen name="menu" options={{ headerShown: false }} />
-        <Stack.Screen name="schema-management" options={{ headerShown: false }} />  
-        <Stack.Screen name="schema-generator" options={{ headerShown: false }} />
-        <Stack.Screen name="data-management" options={{ headerShown: false }} />
-        <Stack.Screen name="audit-trail" options={{ headerShown: false }} />	
-        <Stack.Screen name="queue-monitoring" options={{ headerShown: false }} />
-        <Stack.Screen name="system-health" options={{ headerShown: false }} />
-        <Stack.Screen name="tenant-management" options={{ headerShown: false }} />
-        <Stack.Screen name="profile" options={{ headerShown: false }} />
-        <Stack.Screen name="schema-detail" options={{ headerShown: false }} />
-        <Stack.Screen name="super-admin-menu" options={{ headerShown: false }} />
-        <Stack.Screen name="action-controls" options={{ headerShown: false }} />
-        <Stack.Screen name="view-management" options={{ headerShown: false }} />
+    <VendorProvider>
+      <Stack
+        screenOptions={{
+          headerShown: false,
+        }}
+      >
+        <Stack.Screen name="splash" />
+        <Stack.Screen name="login" />
+        <Stack.Screen name="signup" />
+        <Stack.Screen name="index" />
+        <Stack.Screen name="home" />
+        <Stack.Screen name="feed" />
+        <Stack.Screen name="wardrobe" />
+        <Stack.Screen name="rate" />
+        <Stack.Screen name="messages" />
+        <Stack.Screen name="conversation" />
+        <Stack.Screen name="search" />
+        <Stack.Screen name="profile" />
+        <Stack.Screen name="settings" />
+        <Stack.Screen name="vendor-registration" />
+        <Stack.Screen name="screens/vendor/dashboard" />
+        <Stack.Screen name="screens/vendor/inventory" />
+        <Stack.Screen name="screens/vendor/ads" />
+        <Stack.Screen name="screens/vendor/analytics" />
       </Stack>
-    </QueryProvider>
+    </VendorProvider>
   );
 }

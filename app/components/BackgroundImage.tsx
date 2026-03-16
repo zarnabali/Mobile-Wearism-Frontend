@@ -11,7 +11,7 @@ const BackgroundImage: React.FC<BackgroundImageProps> = ({ children, imageSource
   // Try to load the background image
   let backgroundImage;
   try {
-    backgroundImage = require('../../assets/background/img1.jpg');
+    backgroundImage = require('../../assets/background/download(25).jpeg');
   } catch (error) {
     // Image not found
     backgroundImage = null;
@@ -20,7 +20,7 @@ const BackgroundImage: React.FC<BackgroundImageProps> = ({ children, imageSource
   // Always start with gradient background to prevent white flash
   const gradientBg = (
     <LinearGradient
-      colors={['#1e293b', '#0f172a', '#020617']}
+      colors={['#3C0008', '#2A0005', '#1A0003']}
       style={StyleSheet.absoluteFillObject}
     />
   );
@@ -47,7 +47,7 @@ const BackgroundImage: React.FC<BackgroundImageProps> = ({ children, imageSource
       >
         {/* Additional gradient overlay for better text readability */}
         <LinearGradient
-          colors={['rgba(15, 23, 42, 0.4)', 'rgba(2, 6, 23, 0.2)', 'transparent']}
+          colors={['rgba(60, 0, 8, 0.5)', 'rgba(42, 0, 5, 0.3)', 'transparent']}
           style={styles.overlay}
         >
           {children}

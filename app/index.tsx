@@ -1,6 +1,2 @@
-import { Redirect } from 'expo-router';
-
-export default function HomeScreen() {
-  // Redirect to splash screen
-  return <Redirect href="/splash" />;
-}
+// Re-export splash screen as the index route
+export { default } from './splash';

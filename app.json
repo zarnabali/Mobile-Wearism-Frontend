@@ -1,7 +1,7 @@
 {
   "expo": {
-    "name": "Toolvio-Frontend",
-    "slug": "Toolvio-Frontend",
+    "name": "Wearism",
+    "slug": "wearism",
     "version": "1.0.0",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
@@ -15,7 +15,7 @@
       "supportsTablet": true
     },
     "android": {
-      "package": "com.toolvio.frontend",
+      "package": "com.wearism.app",
       "versionCode": 1,
       "adaptiveIcon": {
         "foregroundImage": "./assets/adaptive-icon.png",
@@ -32,18 +32,16 @@
       "favicon": "./assets/favicon.png",
       "bundler": "metro"
     },
-    "scheme": "toolvio",
+    "scheme": "wearism",
     "plugins": [
       "expo-font",
-      "expo-router",
-      "expo-secure-store"
+      "expo-router"
     ],
     "extra": {
       "router": {},
       "eas": {
         "projectId": "02248162-8972-4bf0-a45c-b3ba21c5f7cf"
-      },
-      "apiBase": "http://192.168.18.75:3000"
+      }
     }
   }
 }
