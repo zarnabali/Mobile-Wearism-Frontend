@@ -1,10 +1,13 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Modal } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Modal, Alert, Share } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
 import { useVendor } from './contexts/VendorContext';
+import { useAuthStore } from '../src/stores/authStore';
+import * as WebBrowser from 'expo-web-browser';
+import { apiClient } from '../src/lib/apiClient';
 
 interface SettingsProps {
     visible: boolean;
@@ -12,61 +15,91 @@ interface SettingsProps {
 }
 
 const settingsOptions = [
-    { id: 'edit', icon: 'person-outline', label: 'Edit Profile', href: '' },
-    { id: 'account', icon: 'shield-outline', label: 'Account & Privacy', href: '' },
-    { id: 'notifications', icon: 'notifications-outline', label: 'Notifications', href: '' },
-    { id: 'saved', icon: 'bookmark-outline', label: 'Saved Items', href: '' },
-    { id: 'orders', icon: 'bag-outline', label: 'Orders', href: '' },
-    { id: 'help', icon: 'help-circle-outline', label: 'Help & Support', href: '' },
+    { id: 'edit', icon: 'person-outline', label: 'Edit Profile' },
+    { id: 'privacy', icon: 'shield-checkmark-outline', label: 'Privacy Policy' },
+    { id: 'gdpr', icon: 'download-outline', label: 'GDPR Data Export' },
+    { id: 'notifications', icon: 'notifications-outline', label: 'Notifications' },
+    { id: 'saved', icon: 'bookmark-outline', label: 'Saved Items' },
+    { id: 'orders', icon: 'bag-outline', label: 'Orders' },
+    { id: 'help', icon: 'help-circle-outline', label: 'Help & Support' },
 ];
 
 const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
-    let vendorData = { isVendor: false, brandName: '', brandType: null, categories: [], description: '', logo: null, banner: null, contactEmail: '', socialLinks: {} };
-    let isVendorMode = false;
-    let setVendorMode = (mode: boolean) => console.log('Vendor mode:', mode);
-
-    try {
-        const vendor = useVendor();
-        vendorData = vendor.vendorData;
-        isVendorMode = vendor.isVendorMode;
-        setVendorMode = vendor.setVendorMode;
-    } catch (error) {
-        console.error('VendorContext error in Settings:', error);
-    }
+    const { vendorData, isVendorMode, setVendorMode } = useVendor();
 
     const handleVendorRegistration = () => {
         onClose();
         router.push('/vendor-registration');
     };
 
+    const handleOptionPress = async (id: string) => {
+        switch (id) {
+            case 'edit':
+                onClose();
+                router.push('/profile/edit');
+                break;
+            case 'privacy':
+                WebBrowser.openBrowserAsync('https://wearism.ai/privacy');
+                break;
+            case 'gdpr':
+                try {
+                    const { data } = await apiClient.get('/auth/me/data');
+                    await Share.share({
+                        message: JSON.stringify(data, null, 2),
+                        title: 'Your Wearism Data',
+                    });
+                } catch (err) {
+                    Alert.alert('Export Failed', 'Could not fetch your data.');
+                }
+                break;
+        }
+    };
+
     const handleSwitchMode = () => {
         const newMode = !isVendorMode;
-        console.log('Switching mode from', isVendorMode, 'to', newMode);
-
         setVendorMode(newMode);
         onClose();
-
-        // Small delay to ensure state updates before navigation
         setTimeout(() => {
-            // Navigate to appropriate screen based on new mode
             if (newMode) {
-                // Switching TO vendor mode - go to dashboard
-                console.log('Navigating to vendor dashboard');
-                router.push('/screens/vendor/dashboard');
+                router.push('/vendor/dashboard' as any);
             } else {
-                // Switching TO user mode - go to home
-                console.log('Navigating to home');
                 router.push('/home');
             }
         }, 100);
     };
 
-    const handleLogout = () => {
-        // Handle logout logic
-        console.log('Logout pressed');
+    const handleLogout = async () => {
+        try {
+            await useAuthStore.getState().logout();
+            onClose();
+        } catch (error) {
+            console.error('Logout failed:', error);
+        }
     };
 
-    console.log('Settings rendering, visible:', visible);
+    const handleDeleteAccount = () => {
+        Alert.alert(
+            'Delete Account',
+            'This cannot be undone. All your data will be permanently deleted.',
+            [
+                { text: 'Cancel', style: 'cancel' },
+                {
+                    text: 'Delete',
+                    style: 'destructive',
+                    onPress: async () => {
+                        try {
+                            await apiClient.delete('/auth/account');
+                            // logout() clears SecureStore tokens + Zustand state
+                            await useAuthStore.getState().logout();
+                            onClose();
+                        } catch (err) {
+                            Alert.alert('Error', 'Could not delete account.');
+                        }
+                    },
+                },
+            ]
+        );
+    };
 
     return (
         <Modal
@@ -129,6 +162,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                                     {settingsOptions.map((option) => (
                                         <TouchableOpacity
                                             key={option.id}
+                                            onPress={() => handleOptionPress(option.id)}
                                             style={{
                                                 flexDirection: 'row',
                                                 alignItems: 'center',
@@ -303,6 +337,42 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                                             }}
                                         >
                                             Logout
+                                        </Text>
+                                    </TouchableOpacity>
+
+                                    {/* Delete Account */}
+                                    <TouchableOpacity
+                                        onPress={handleDeleteAccount}
+                                        style={{
+                                            flexDirection: 'row',
+                                            alignItems: 'center',
+                                            paddingVertical: 16,
+                                        }}
+                                        activeOpacity={0.7}
+                                    >
+                                        <View
+                                            style={{
+                                                width: 40,
+                                                height: 40,
+                                                borderRadius: 12,
+                                                backgroundColor: 'rgba(255,59,48,0.1)',
+                                                justifyContent: 'center',
+                                                alignItems: 'center',
+                                                marginRight: 16,
+                                            }}
+                                        >
+                                            <Ionicons name="trash-outline" size={22} color="#FF3B30" />
+                                        </View>
+                                        <Text
+                                            style={{
+                                                flex: 1,
+                                                fontSize: 16,
+                                                fontFamily: 'HelveticaNeue',
+                                                color: '#FF3B30',
+                                                opacity: 0.8,
+                                            }}
+                                        >
+                                            Delete Account
                                         </Text>
                                     </TouchableOpacity>
                                 </View>

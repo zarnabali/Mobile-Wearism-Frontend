@@ -1,145 +1,527 @@
-import React from 'react';
-import { View, Text, ScrollView, ImageBackground, TouchableOpacity } from 'react-native';
+import React, { useState } from 'react';
+import {
+  View, Text, ScrollView, TouchableOpacity, Image,
+  ActivityIndicator, RefreshControl, FlatList,
+} from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useRouter } from 'expo-router';
 import BottomNav from './components/BottomNav';
+import { apiClient } from '../src/lib/apiClient';
+import { Skeleton } from '../src/components/Skeleton';
+import { EmptyState } from '../src/components/EmptyState';
 
-const wardrobeCategories = [
-  { id: 'w1', title: 'Upper', img: require('../assets/pictures/ai.jpeg'), count: 18 },
-  { id: 'w2', title: 'Lower', img: require('../assets/pictures/ai2.jpeg'), count: 12 },
-  { id: 'w3', title: 'Footwear', img: require('../assets/pictures/wardrobe3.jpeg'), count: 9 },
-  { id: 'w4', title: 'Accessories', img: require('../assets/pictures/social2.jpeg'), count: 22 },
-];
+// Slot display config
+const SLOT_CONFIG: Record<string, { label: string; icon: string }> = {
+  upperwear:   { label: 'Tops',       icon: 'shirt-outline' },
+  lowerwear:   { label: 'Bottoms',    icon: 'body-outline' },
+  outerwear:   { label: 'Outerwear',  icon: 'cloud-outline' },
+  footwear:    { label: 'Footwear',   icon: 'footsteps-outline' },
+  accessories: { label: 'Accessories', icon: 'glasses-outline' },
+};
 
-const weeklyOutfits = [
-  { day: 'Mon', fit: 'Smart Casual • AI picks', score: '9.1' },
-  { day: 'Tue', fit: 'Street Layered', score: '8.6' },
-  { day: 'Wed', fit: 'Minimal Studio', score: '8.9' },
-  { day: 'Thu', fit: 'Neutral Core', score: '8.2' },
-  { day: 'Fri', fit: 'Night Out', score: '9.3' },
-  { day: 'Sat', fit: 'Weekend Chill', score: '8.5' },
-  { day: 'Sun', fit: 'Athflow', score: '8.7' },
-];
+// Shimmer card for items still being classified
+function ClassifyingCard() {
+  return (
+    <View
+      style={{
+        width: 100, height: 120, borderRadius: 16,
+        backgroundColor: 'rgba(255,107,53,0.08)',
+        borderWidth: 1, borderColor: 'rgba(255,107,53,0.25)',
+        alignItems: 'center', justifyContent: 'center',
+        marginRight: 12,
+      }}
+    >
+      <ActivityIndicator size="small" color="#FF6B35" />
+      <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,107,53,0.8)', fontSize: 10, marginTop: 6, textAlign: 'center' }}>
+        Classifying…
+      </Text>
+    </View>
+  );
+}
+
+// ─── Outfit card (2-col grid) ────────────────────────────────────────────────
+function OutfitCard({ outfit }: { outfit: any }) {
+  const router = useRouter();
+  const items: any[] = outfit.items ?? [];
+  return (
+    <TouchableOpacity
+      onPress={() => router.push(`/wardrobe/outfit-detail?id=${outfit.id}` as any)}
+      activeOpacity={0.85}
+      style={{
+        flex: 1,
+        margin: 6,
+        borderRadius: 20,
+        overflow: 'hidden',
+        backgroundColor: 'rgba(255,255,255,0.05)',
+        borderWidth: 1,
+        borderColor: 'rgba(255,255,255,0.09)',
+      }}
+    >
+      {/* Cover image or 2×2 collage */}
+      {outfit.cover_image_url ? (
+        <Image
+          source={{ uri: outfit.cover_image_url }}
+          style={{ width: '100%', aspectRatio: 1 }}
+          resizeMode="cover"
+        />
+      ) : (
+        <View style={{ width: '100%', aspectRatio: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
+          {items.slice(0, 4).map((item: any, i: number) => (
+            <Image
+              key={i}
+              source={{ uri: item.image_url }}
+              style={{ width: '50%', height: '50%', backgroundColor: 'rgba(255,255,255,0.04)' }}
+              resizeMode="cover"
+            />
+          ))}
+          {items.length === 0 && (
+            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="shirt-outline" size={36} color="rgba(255,255,255,0.18)" />
+            </View>
+          )}
+        </View>
+      )}
+
+      {/* Info row */}
+      <View style={{ padding: 10 }}>
+        <Text
+          style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 13 }}
+          numberOfLines={1}
+        >
+          {outfit.name || 'Untitled Outfit'}
+        </Text>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 8 }}>
+          {outfit.occasion ? (
+            <Text style={{ fontFamily: 'HelveticaNeue', color: '#FF6B35', fontSize: 11, textTransform: 'capitalize' }}>
+              {outfit.occasion.replace(/_/g, ' ')}
+            </Text>
+          ) : null}
+          <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>
+            {items.length} item{items.length !== 1 ? 's' : ''}
+          </Text>
+        </View>
+      </View>
+    </TouchableOpacity>
+  );
+}
 
 const WardrobeScreen = () => {
+  const router = useRouter();
+  const qc = useQueryClient();
+  const [activeTab, setActiveTab] = useState<'items' | 'outfits'>('items');
+
+  // ─── Items Query ──────────────────────────────────────────────────────────
+  const {
+    data: itemsData,
+    isLoading: itemsLoading,
+    refetch: refetchItems,
+    isRefetching,
+  } = useQuery({
+    queryKey: ['wardrobe-items'],
+    queryFn: () => apiClient.get('/wardrobe/items?limit=100').then(r => r.data),
+  });
+
+  // ─── Outfits Query ────────────────────────────────────────────────────────
+  const {
+    data: outfitsData,
+    isLoading: outfitsLoading,
+    refetch: refetchOutfits,
+    isRefetching: outfitsRefetching,
+  } = useQuery({
+    queryKey: ['outfits'],
+    queryFn: () => apiClient.get('/wardrobe/outfits?limit=50').then(r => r.data),
+    enabled: activeTab === 'outfits',
+  });
+
+  // ─── Recommendations ──────────────────────────────────────────────────────
+  const { data: recsData, isLoading: recsLoading } = useQuery({
+    queryKey: ['recommendations'],
+    queryFn: () => apiClient.get('/recommendations?status=scored&limit=10').then(r => r.data),
+    enabled: activeTab === 'items',
+  });
+
+  const generateMutation = useMutation({
+    mutationFn: () => apiClient.post('/recommendations/generate'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recommendations'] }),
+  });
+
+  const saveMutation = useMutation({
+    mutationFn: (id: string) => apiClient.post(`/recommendations/${id}/save`),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['recommendations'] });
+      qc.invalidateQueries({ queryKey: ['outfits'] });
+    },
+  });
+
+  const dismissMutation = useMutation({
+    mutationFn: (id: string) => apiClient.post(`/recommendations/${id}/dismiss`),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['recommendations'] }),
+  });
+
+  const items: any[] = itemsData?.items ?? itemsData?.data ?? [];
+  const outfits: any[] = outfitsData?.outfits ?? outfitsData?.data ?? [];
+  const recs: any[] = recsData?.recommendations ?? recsData?.data ?? [];
+  const pending = items.filter((i: any) => !i.wardrobe_slot);
+
+  // Per-slot counts + first image for thumbnail
+  const slotMeta = Object.keys(SLOT_CONFIG).map(slot => {
+    const slotItems = items.filter((i: any) => i.wardrobe_slot === slot);
+    return { slot, count: slotItems.length, thumb: slotItems[0]?.image_url ?? null };
+  });
+
   return (
-    <View className="flex-1 bg-black">
-      <LinearGradient colors={['rgba(60, 0, 8, 0.45)', 'rgba(60, 0, 8, 0.30)', 'rgba(60, 0, 8, 0.55)']} style={{ flex: 1 }}>
-        <SafeAreaView className="flex-1">
-          <ScrollView contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
-            <View className="px-5 pt-4">
-              <View className="flex-row items-center justify-between mb-6">
-                <Text className="text-white text-3xl font-light" style={{ fontFamily: 'HelveticaNeue-Light' }}>
-                  Wardrobe
-                </Text>
-                <TouchableOpacity className="bg-white/10 p-2.5 rounded-full border border-white/10">
-                  <Ionicons name="search-outline" size={22} color="white" />
-                </TouchableOpacity>
-              </View>
+    <View style={{ flex: 1, backgroundColor: '#000' }}>
+      <LinearGradient
+        colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']}
+        style={{ flex: 1 }}
+      >
+        <SafeAreaView style={{ flex: 1 }}>
 
-              {/* Add Item Section */}
-              <TouchableOpacity
-                className="flex-row items-center justify-between bg-[#FF6B35] rounded-[24px] p-5 mb-8 shadow-lg shadow-orange-500/20"
-                activeOpacity={0.9}
-              >
-                <View>
-                  <Text className="text-white text-lg font-bold" style={{ fontFamily: 'HelveticaNeue-Bold' }}>
-                    Add New Item
-                  </Text>
-                  <Text className="text-white/80 text-sm mt-1" style={{ fontFamily: 'HelveticaNeue' }}>
-                    Upload or scan your clothes
-                  </Text>
-                </View>
-                <View className="w-10 h-10 bg-white/20 rounded-full items-center justify-center">
-                  <Ionicons name="add" size={24} color="white" />
-                </View>
-              </TouchableOpacity>
-
-              {/* Categories */}
-              <Text className="text-white text-xl mb-4 font-light" style={{ fontFamily: 'HelveticaNeue-light' }}>
-                Categories
+          {/* ── Sticky Header + Tab Bar ── */}
+          <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
+            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
+              <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 30 }}>
+                Wardrobe
               </Text>
-              <View className="flex-row flex-wrap -mx-2 mb-6">
-                {wardrobeCategories.map((cat) => (
-                  <View key={cat.id} className="w-1/2 px-2 mb-4">
-                    <TouchableOpacity activeOpacity={0.9}>
-                      <ImageBackground
-                        source={cat.img}
-                        style={{ height: 180, borderRadius: 24, overflow: 'hidden' }}
-                        imageStyle={{ borderRadius: 24, opacity: 0.9 }}
-                      >
-                        <LinearGradient
-                          colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.4)', 'rgba(0,0,0,0.9)']}
-                          style={{ flex: 1, justifyContent: 'flex-end', padding: 16 }}
-                        >
-                          <Text className="text-white text-xl font-bold" style={{ fontFamily: 'HelveticaNeue-Bold' }}>
-                            {cat.title}
+              <TouchableOpacity
+                style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: 10, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+              >
+                <Ionicons name="search-outline" size={22} color="white" />
+              </TouchableOpacity>
+            </View>
+
+            {/* Tab toggle pill */}
+            <View style={{
+              flexDirection: 'row',
+              backgroundColor: 'rgba(255,255,255,0.07)',
+              borderRadius: 999,
+              padding: 4,
+              borderWidth: 1,
+              borderColor: 'rgba(255,255,255,0.08)',
+            }}>
+              {(['items', 'outfits'] as const).map(tab => (
+                <TouchableOpacity
+                  key={tab}
+                  onPress={() => setActiveTab(tab)}
+                  activeOpacity={0.8}
+                  style={{
+                    flex: 1,
+                    paddingVertical: 9,
+                    borderRadius: 999,
+                    alignItems: 'center',
+                    backgroundColor: activeTab === tab ? '#FF6B35' : 'transparent',
+                  }}
+                >
+                  <Text style={{
+                    fontFamily: 'HelveticaNeue-Medium',
+                    color: activeTab === tab ? '#fff' : 'rgba(255,255,255,0.55)',
+                    fontSize: 14,
+                    textTransform: 'capitalize',
+                  }}>
+                    {tab === 'items' ? 'Items' : 'Outfits'}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </View>
+          </View>
+
+          {/* ── Items Tab ── */}
+          {activeTab === 'items' ? (
+            <ScrollView
+              contentContainerStyle={{ paddingBottom: 140 }}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl refreshing={isRefetching} onRefresh={refetchItems} tintColor="#FF6B35" />
+              }
+            >
+              <View style={{ paddingHorizontal: 20 }}>
+
+                {/* ── Add Item CTA ── */}
+                <TouchableOpacity
+                  onPress={() => router.push('/wardrobe/item-upload' as any)}
+                  activeOpacity={0.9}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                    backgroundColor: '#FF6B35', borderRadius: 24, padding: 20, marginBottom: 32,
+                    shadowColor: '#FF6B35', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
+                  }}
+                >
+                  <View>
+                    <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 18 }}>Add New Item</Text>
+                    <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 2 }}>
+                      Upload or scan your clothes
+                    </Text>
+                  </View>
+                  <View style={{ width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 999, alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="add" size={24} color="white" />
+                  </View>
+                </TouchableOpacity>
+
+                {/* ── Pending Classification ── */}
+                {pending.length > 0 && (
+                  <View style={{ marginBottom: 28 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
+                      <ActivityIndicator size="small" color="#FF6B35" style={{ marginRight: 8 }} />
+                      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#FF6B35', fontSize: 13 }}>
+                        {pending.length} item{pending.length > 1 ? 's' : ''} being classified…
+                      </Text>
+                    </View>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, paddingHorizontal: 20 }}>
+                      {pending.map((_: any, idx: number) => (
+                        <ClassifyingCard key={idx} />
+                      ))}
+                    </ScrollView>
+                  </View>
+                )}
+
+                {/* ── Categories ── */}
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 20, marginBottom: 16 }}>
+                  Categories
+                </Text>
+
+                {itemsLoading ? (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -8, marginBottom: 28, gap: 0 }}>
+                    {Array(4).fill(0).map((_, i) => (
+                      <View key={i} style={{ width: '50%', paddingHorizontal: 8, marginBottom: 16 }}>
+                        <Skeleton className="w-full h-[180px] rounded-3xl" />
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -8, marginBottom: 28 }}>
+                    {slotMeta.map(({ slot, count, thumb }) => {
+                      const cfg = SLOT_CONFIG[slot];
+                      return (
+                        <View key={slot} style={{ width: '50%', paddingHorizontal: 8, marginBottom: 16 }}>
+                          <TouchableOpacity
+                            activeOpacity={0.9}
+                            onPress={() => router.push(`/wardrobe/wardrobe-grid?slot=${slot}&title=${cfg.label}` as any)}
+                            style={{ borderRadius: 24, overflow: 'hidden', height: 180 }}
+                          >
+                            {thumb ? (
+                              <Image
+                                source={{ uri: thumb }}
+                                style={{ width: '100%', height: '100%', position: 'absolute' }}
+                                resizeMode="cover"
+                              />
+                            ) : (
+                              <View style={{ width: '100%', height: '100%', backgroundColor: 'rgba(255,255,255,0.05)', position: 'absolute', alignItems: 'center', justifyContent: 'center' }}>
+                                <Ionicons name={cfg.icon as any} size={40} color="rgba(255,255,255,0.2)" />
+                              </View>
+                            )}
+                            <LinearGradient
+                              colors={['transparent', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0.9)']}
+                              style={{ flex: 1, justifyContent: 'flex-end', padding: 16 }}
+                            >
+                              <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 18 }}>
+                                {cfg.label}
+                              </Text>
+                              <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 }}>
+                                {count} item{count !== 1 ? 's' : ''}
+                              </Text>
+                            </LinearGradient>
+                          </TouchableOpacity>
+                        </View>
+                      );
+                    })}
+                  </View>
+                )}
+
+                {/* ── AI Recommendations ── */}
+                <View style={{ marginTop: 8, marginBottom: 16 }}>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+                      <Ionicons name="sparkles" size={18} color="#FF6B35" style={{ marginRight: 8 }} />
+                      <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 20 }}>
+                        AI Fits
+                      </Text>
+                    </View>
+                    <TouchableOpacity
+                      onPress={() => generateMutation.mutate()}
+                      disabled={generateMutation.isPending}
+                      style={{
+                        flexDirection: 'row', alignItems: 'center',
+                        backgroundColor: generateMutation.isPending ? 'rgba(255,107,53,0.3)' : 'rgba(255,107,53,0.15)',
+                        borderWidth: 1, borderColor: 'rgba(255,107,53,0.4)',
+                        paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
+                      }}
+                    >
+                      {generateMutation.isPending ? (
+                        <ActivityIndicator size="small" color="#FF6B35" />
+                      ) : (
+                        <>
+                          <Ionicons name="refresh-outline" size={14} color="#FF6B35" style={{ marginRight: 5 }} />
+                          <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#FF6B35', fontSize: 13 }}>
+                            Generate
                           </Text>
-                          <Text className="text-white/80 text-xs mt-1" style={{ fontFamily: 'HelveticaNeue' }}>
-                            {cat.count} items
-                          </Text>
-                        </LinearGradient>
-                      </ImageBackground>
+                        </>
+                      )}
                     </TouchableOpacity>
                   </View>
-                ))}
-              </View>
 
-              {/* Weekly AI Fits */}
-              <View className="mb-4">
-                <View className="flex-row items-center justify-between mb-4">
-                  <Text className="text-white text-xl font-light" style={{ fontFamily: 'HelveticaNeue-light' }}>
-                    Weekly AI Fits
-                  </Text>
-                  <TouchableOpacity>
-                    <Text className="text-[#FF6B35] text-sm" style={{ fontFamily: 'HelveticaNeue-Medium' }}>
-                      See all
-                    </Text>
-                  </TouchableOpacity>
-                </View>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="-mx-5 px-5">
-                  {weeklyOutfits.map((o) => (
+                  {recsLoading ? (
+                    <ActivityIndicator color="#FF6B35" style={{ alignSelf: 'flex-start' }} />
+                  ) : recs.length === 0 ? (
                     <TouchableOpacity
-                      key={o.day}
-                      className="mr-4 bg-white/05 border border-white/10 rounded-[24px] p-4 w-40"
+                      onPress={() => generateMutation.mutate()}
+                      disabled={generateMutation.isPending}
                       activeOpacity={0.8}
+                      style={{
+                        backgroundColor: 'rgba(255,255,255,0.04)',
+                        borderWidth: 1, borderColor: 'rgba(255,107,53,0.2)',
+                        borderRadius: 24, padding: 24, alignItems: 'center',
+                      }}
                     >
-                      <View className="flex-row items-center justify-between mb-3">
-                        <Text
-                          className="text-white/90 text-sm font-bold uppercase tracking-wider"
-                          style={{ fontFamily: 'HelveticaNeue-Bold' }}
-                        >
-                          {o.day}
-                        </Text>
-                        <View className="bg-[#FF6B35]/20 px-2 py-1 rounded-lg">
-                          <Text className="text-[#FF6B35] text-xs font-bold">{o.score}</Text>
-                        </View>
-                      </View>
-
-                      <View className="h-24 bg-white/05 rounded-xl mb-3 items-center justify-center border border-white/05">
-                        <Ionicons name="shirt-outline" size={32} color="rgba(255,255,255,0.3)" />
-                      </View>
-
-                      <Text className="text-white text-sm font-medium leading-5" style={{ fontFamily: 'HelveticaNeue-Medium' }}>
-                        {o.fit}
+                      <Ionicons name="sparkles-outline" size={32} color="rgba(255,107,53,0.45)" />
+                      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.55)', fontSize: 14, marginTop: 10 }}>
+                        No recommendations yet
                       </Text>
-                      <Text className="text-white/50 text-xs mt-1" style={{ fontFamily: 'HelveticaNeue' }}>
-                        Tap to view
+                      <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,107,53,0.65)', fontSize: 13, marginTop: 4 }}>
+                        Tap Generate to get AI outfit ideas →
                       </Text>
                     </TouchableOpacity>
-                  ))}
-                </ScrollView>
+                  ) : (
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, paddingHorizontal: 20 }}>
+                      {recs.map((rec: any) => (
+                        <View
+                          key={rec.id}
+                          style={{
+                            width: 200, marginRight: 16,
+                            backgroundColor: 'rgba(255,255,255,0.05)',
+                            borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
+                            borderRadius: 24, overflow: 'hidden',
+                          }}
+                        >
+                          {/* Item thumbnails */}
+                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', padding: 12, gap: 6 }}>
+                            {(rec.items ?? []).slice(0, 4).map((item: any, idx: number) => (
+                              <View
+                                key={idx}
+                                style={{ width: 76, height: 76, borderRadius: 12, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.05)' }}
+                              >
+                                <Image source={{ uri: item.image_url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
+                              </View>
+                            ))}
+                          </View>
+
+                          <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
+                            {rec.score != null && (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
+                                <Ionicons name="star" size={12} color="#FF6B35" style={{ marginRight: 4 }} />
+                                <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#FF6B35', fontSize: 13 }}>
+                                  {rec.score.toFixed(1)}
+                                </Text>
+                              </View>
+                            )}
+                            {rec.occasion && (
+                              <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.5)', fontSize: 12, marginBottom: 12, textTransform: 'capitalize' }}>
+                                {rec.occasion.replace(/_/g, ' ')}
+                              </Text>
+                            )}
+                            <View style={{ flexDirection: 'row', gap: 8 }}>
+                              <TouchableOpacity
+                                onPress={() => saveMutation.mutate(rec.id)}
+                                disabled={saveMutation.isPending}
+                                style={{
+                                  flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
+                                  backgroundColor: '#FF6B35', borderRadius: 12, paddingVertical: 9,
+                                }}
+                              >
+                                {saveMutation.isPending ? (
+                                  <ActivityIndicator size="small" color="#fff" />
+                                ) : (
+                                  <>
+                                    <Ionicons name="bookmark-outline" size={14} color="#fff" style={{ marginRight: 5 }} />
+                                    <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 12 }}>Save</Text>
+                                  </>
+                                )}
+                              </TouchableOpacity>
+                              <TouchableOpacity
+                                onPress={() => dismissMutation.mutate(rec.id)}
+                                disabled={dismissMutation.isPending}
+                                style={{
+                                  width: 38, height: 38, alignItems: 'center', justifyContent: 'center',
+                                  backgroundColor: 'rgba(255,255,255,0.08)',
+                                  borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 12,
+                                }}
+                              >
+                                <Ionicons name="close" size={16} color="rgba(255,255,255,0.6)" />
+                              </TouchableOpacity>
+                            </View>
+                          </View>
+                        </View>
+                      ))}
+                    </ScrollView>
+                  )}
+                </View>
+
               </View>
-            </View>
-          </ScrollView>
+            </ScrollView>
+
+          ) : (
+            /* ── Outfits Tab ── */
+            <FlatList
+              data={outfits}
+              numColumns={2}
+              keyExtractor={(item) => item.id}
+              contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 140, flexGrow: 1 }}
+              showsVerticalScrollIndicator={false}
+              refreshControl={
+                <RefreshControl refreshing={outfitsRefetching} onRefresh={refetchOutfits} tintColor="#FF6B35" />
+              }
+              ListHeaderComponent={
+                <TouchableOpacity
+                  onPress={() => router.push('/wardrobe/outfit-create' as any)}
+                  activeOpacity={0.9}
+                  style={{
+                    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
+                    backgroundColor: 'rgba(255,107,53,0.12)',
+                    borderWidth: 1, borderColor: 'rgba(255,107,53,0.3)',
+                    borderRadius: 20, padding: 16, marginBottom: 12, marginHorizontal: 6,
+                  }}
+                >
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                    <View style={{ width: 36, height: 36, borderRadius: 999, backgroundColor: '#FF6B35', alignItems: 'center', justifyContent: 'center' }}>
+                      <Ionicons name="add" size={22} color="white" />
+                    </View>
+                    <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#FF6B35', fontSize: 15 }}>
+                      Create New Outfit
+                    </Text>
+                  </View>
+                  <Ionicons name="arrow-forward" size={18} color="rgba(255,107,53,0.7)" />
+                </TouchableOpacity>
+              }
+              renderItem={({ item }) => <OutfitCard outfit={item} />}
+              ListEmptyComponent={
+                outfitsLoading ? (
+                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 6 }}>
+                    {Array(4).fill(0).map((_, i) => (
+                      <View key={i} style={{ width: '50%', padding: 6 }}>
+                        <Skeleton className="w-full aspect-square rounded-2xl" />
+                      </View>
+                    ))}
+                  </View>
+                ) : (
+                  <EmptyState
+                    icon="shirt-outline"
+                    title="No outfits yet"
+                    subtitle="Create your first outfit from your wardrobe items"
+                    actionLabel="Create Outfit"
+                    onAction={() => router.push('/wardrobe/outfit-create' as any)}
+                  />
+                )
+              }
+            />
+          )}
+
+          <BottomNav active="wardrobe" />
         </SafeAreaView>
-        <BottomNav active="wardrobe" />
       </LinearGradient>
     </View>
   );
 };
 
 export default WardrobeScreen;
-
-

@@ -12,6 +12,8 @@ import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import BackgroundImage from './components/BackgroundImage';
 import { useRouter } from 'expo-router';
+import { useAuthStore } from '../src/stores/authStore';
+import { ActivityIndicator } from 'react-native';
 
 const LoginScreen = () => {
   const router = useRouter();
@@ -19,16 +21,23 @@ const LoginScreen = () => {
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [loading, setLoading] = useState(false);
 
-  const handleLogin = () => {
+  const handleLogin = async () => {
     setError(null);
     if (!email || !password) {
       setError('Email and password are required');
       return;
     }
-
-    // UI only - no backend call; go to home/feed
-    router.replace('/home');
+    setLoading(true);
+    try {
+      await useAuthStore.getState().login(email, password);
+      router.replace('/home');
+    } catch (err: any) {
+      setError(err.response?.data?.error ?? 'Login failed. Please try again.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -80,7 +89,7 @@ const LoginScreen = () => {
                   <View className="bg-white/10 rounded-xl px-4 py-4 flex-row items-center border border-white/20">
                     <Ionicons name="mail-outline" size={20} color="#FF6B35" />
                     <TextInput
-                      className="flex-1 ml-3 text-white text-base"
+                      className="flex-1 ml-3 text-white text-[16px]"
                       placeholder="Enter your email"
                       placeholderTextColor="rgba(255,255,255,0.6)"
                       value={email}
@@ -88,7 +97,7 @@ const LoginScreen = () => {
                       keyboardType="email-address"
                       autoCapitalize="none"
                       autoCorrect={false}
-                      style={{ fontFamily: 'HelveticaNeue', color: '#ffffff' }}
+                      style={{ paddingVertical: 0, fontFamily: 'HelveticaNeue', color: '#ffffff' }}
                     />
                   </View>
                 </View>
@@ -104,7 +113,7 @@ const LoginScreen = () => {
                   <View className="bg-white/10 rounded-xl px-4 py-4 flex-row items-center border border-white/20">
                     <Ionicons name="lock-closed-outline" size={20} color="#FF6B35" />
                     <TextInput
-                      className="flex-1 ml-3 text-white text-base"
+                      className="flex-1 ml-3 text-white text-[16px]"
                       placeholder="Enter your password"
                       placeholderTextColor="rgba(255,255,255,0.6)"
                       value={password}
@@ -112,7 +121,7 @@ const LoginScreen = () => {
                       secureTextEntry={!showPassword}
                       autoCapitalize="none"
                       autoCorrect={false}
-                      style={{ fontFamily: 'HelveticaNeue', color: '#ffffff' }}
+                      style={{ paddingVertical: 0, fontFamily: 'HelveticaNeue', color: '#ffffff' }}
                     />
                     <TouchableOpacity
                       onPress={() => setShowPassword(!showPassword)}
@@ -143,23 +152,20 @@ const LoginScreen = () => {
                   activeOpacity={0.8}
                   style={{ backgroundColor: '#FF6B35' }}
                 >
-                  <Text
-                    className="text-white text-center text-lg font-semibold"
-                    style={{ fontFamily: 'HelveticaNeue-Heavy' }}
-                  >
-                    Login
-                  </Text>
+                  {loading ? <ActivityIndicator color="white" /> : <Text className="text-white text-center text-lg font-semibold" style={{ fontFamily: 'HelveticaNeue-Heavy' }}>Login</Text>}
                 </TouchableOpacity>
 
                 {/* Forgot Password */}
-                <TouchableOpacity className="mb-6">
-                  <Text
-                    className="text-orange-400 text-center text-sm"
-                    style={{ fontFamily: 'HelveticaNeue', color: '#FF6B35' }}
-                  >
-                    Forgot Password?
-                  </Text>
-                </TouchableOpacity>
+                <Link href="/forgot-password" asChild>
+                  <TouchableOpacity className="mb-6">
+                    <Text
+                      className="text-orange-400 text-center text-sm"
+                      style={{ fontFamily: 'HelveticaNeue', color: '#FF6B35' }}
+                    >
+                      Forgot Password?
+                    </Text>
+                  </TouchableOpacity>
+                </Link>
 
                 {/* Sign Up Link */}
                 <View className="flex-row justify-center items-center">

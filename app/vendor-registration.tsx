@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, TextInput, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, TextInput, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useVendor } from './contexts/VendorContext';
+import { useMutation } from '@tanstack/react-query';
+import { apiClient } from '../src/lib/apiClient';
 
 type BrandType = 'local' | 'startup' | 'established' | 'corporation';
 
@@ -18,8 +19,8 @@ const categories = [
 ];
 
 const VendorRegistration = () => {
-    const { registerAsVendor, setVendorMode } = useVendor();
     const [step, setStep] = useState(1);
+    const [apiError, setApiError] = useState<string | null>(null);
 
     // Form state
     const [brandName, setBrandName] = useState('');
@@ -36,6 +37,15 @@ const VendorRegistration = () => {
         { value: 'established', label: 'Established Brand', description: 'Well-known brand' },
         { value: 'corporation', label: 'Large Corporation', description: 'Major fashion company' },
     ];
+
+    const registerMutation = useMutation({
+        mutationFn: (body: any) => apiClient.post('/vendors/register', body),
+        onSuccess: () => router.replace({
+            pathname: '/vendor-pending' as any,
+            params: { shopName: brandName },
+        }),
+        onError: (err: any) => setApiError(err.response?.data?.error ?? 'Registration failed. Please try again.'),
+    });
 
     const toggleCategory = (category: string) => {
         if (selectedCategories.includes(category)) {
@@ -60,26 +70,16 @@ const VendorRegistration = () => {
     };
 
     const handleComplete = () => {
-        // Register vendor
-        registerAsVendor({
-            brandName,
-            brandType,
+        setApiError(null);
+        registerMutation.mutate({
+            brand_name: brandName,
+            brand_type: brandType,
             categories: selectedCategories,
             description,
-            logo: null,
-            banner: null,
-            contactEmail,
-            socialLinks: {
-                instagram,
-                website,
-            },
+            contact_email: contactEmail,
+            instagram,
+            website,
         });
-
-        // Switch to vendor mode
-        setVendorMode(true);
-
-        // Navigate to vendor dashboard
-        router.replace('/screens/vendor/dashboard');
     };
 
     const canProceed = () => {
@@ -146,7 +146,7 @@ const VendorRegistration = () => {
                                     onChangeText={setBrandName}
                                     placeholder="Enter your brand name"
                                     placeholderTextColor="rgba(255,255,255,0.4)"
-                                    style={{
+                                    style={{ paddingVertical: 0, 
                                         backgroundColor: 'rgba(255,255,255,0.1)',
                                         borderWidth: 1,
                                         borderColor: 'rgba(255,255,255,0.2)',
@@ -239,7 +239,7 @@ const VendorRegistration = () => {
                                     multiline
                                     numberOfLines={6}
                                     textAlignVertical="top"
-                                    style={{
+                                    style={{ paddingVertical: 0, 
                                         backgroundColor: 'rgba(255,255,255,0.1)',
                                         borderWidth: 1,
                                         borderColor: 'rgba(255,255,255,0.2)',
@@ -275,7 +275,7 @@ const VendorRegistration = () => {
                                     placeholderTextColor="rgba(255,255,255,0.4)"
                                     keyboardType="email-address"
                                     autoCapitalize="none"
-                                    style={{
+                                    style={{ paddingVertical: 0, 
                                         backgroundColor: 'rgba(255,255,255,0.1)',
                                         borderWidth: 1,
                                         borderColor: 'rgba(255,255,255,0.2)',
@@ -298,7 +298,7 @@ const VendorRegistration = () => {
                                     placeholder="@yourbrand"
                                     placeholderTextColor="rgba(255,255,255,0.4)"
                                     autoCapitalize="none"
-                                    style={{
+                                    style={{ paddingVertical: 0, 
                                         backgroundColor: 'rgba(255,255,255,0.1)',
                                         borderWidth: 1,
                                         borderColor: 'rgba(255,255,255,0.2)',
@@ -322,7 +322,7 @@ const VendorRegistration = () => {
                                     placeholderTextColor="rgba(255,255,255,0.4)"
                                     keyboardType="url"
                                     autoCapitalize="none"
-                                    style={{
+                                    style={{ paddingVertical: 0, 
                                         backgroundColor: 'rgba(255,255,255,0.1)',
                                         borderWidth: 1,
                                         borderColor: 'rgba(255,255,255,0.2)',
@@ -340,24 +340,38 @@ const VendorRegistration = () => {
 
                     {/* Footer Buttons */}
                     <View style={{ paddingHorizontal: 20, paddingVertical: 16, borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.1)' }}>
+                        {apiError && (
+                            <View style={{ backgroundColor: 'rgba(255,60,60,0.12)', borderWidth: 1, borderColor: 'rgba(255,60,60,0.3)', borderRadius: 12, paddingHorizontal: 16, paddingVertical: 10, marginBottom: 14, flexDirection: 'row', alignItems: 'center' }}>
+                                <Ionicons name="alert-circle-outline" size={16} color="#FF4040" style={{ marginRight: 8 }} />
+                                <Text style={{ fontFamily: 'HelveticaNeue', color: '#FF4040', fontSize: 13, flex: 1 }}>
+                                    {apiError}
+                                </Text>
+                            </View>
+                        )}
                         <TouchableOpacity
                             onPress={step === 3 ? handleComplete : handleNext}
-                            disabled={!canProceed()}
+                            disabled={!canProceed() || registerMutation.isPending}
                             style={{
-                                backgroundColor: canProceed() ? '#FF6B35' : 'rgba(255,255,255,0.1)',
+                                backgroundColor: (canProceed() && !registerMutation.isPending) ? '#FF6B35' : 'rgba(255,255,255,0.1)',
                                 borderRadius: 16,
                                 paddingVertical: 16,
                                 alignItems: 'center',
+                                justifyContent: 'center',
+                                flexDirection: 'row',
                                 shadowColor: '#FF6B35',
-                                shadowOpacity: canProceed() ? 0.3 : 0,
+                                shadowOpacity: (canProceed() && !registerMutation.isPending) ? 0.3 : 0,
                                 shadowRadius: 12,
                                 shadowOffset: { width: 0, height: 4 },
-                                elevation: canProceed() ? 8 : 0,
+                                elevation: (canProceed() && !registerMutation.isPending) ? 8 : 0,
                             }}
                         >
-                            <Text style={{ fontSize: 17, fontFamily: 'HelveticaNeue-Bold', color: '#fff' }}>
-                                {step === 3 ? 'Complete Registration' : 'Continue'}
-                            </Text>
+                            {registerMutation.isPending ? (
+                                <ActivityIndicator color="#fff" size="small" />
+                            ) : (
+                                <Text style={{ fontSize: 17, fontFamily: 'HelveticaNeue-Bold', color: '#fff' }}>
+                                    {step === 3 ? 'Complete Registration' : 'Continue'}
+                                </Text>
+                            )}
                         </TouchableOpacity>
                     </View>
                 </SafeAreaView>

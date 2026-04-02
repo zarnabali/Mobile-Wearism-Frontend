@@ -143,7 +143,7 @@ const ConversationScreen = () => {
                   multiline
                   value={message}
                   onChangeText={setMessage}
-                  style={{ fontFamily: 'HelveticaNeue' }}
+                  style={{ paddingVertical: 0,  fontFamily: 'HelveticaNeue' }}
                 />
                 {message.length > 0 ? (
                   <TouchableOpacity onPress={sendMessage}>

@@ -1,13 +1,46 @@
 import '../global.css';
-import { Stack } from 'expo-router';
 import { useEffect } from 'react';
+import { Slot, useRouter, useSegments } from 'expo-router';
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query';
+import { useAuthStore } from '../src/stores/authStore';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
-import { StatusBar } from 'expo-status-bar';
-import { VendorProvider } from './contexts/VendorContext';
+import { ErrorBoundary } from '../src/components/ErrorBoundary';
+import VendorProvider from './contexts/VendorContext';
+import { registerFcmToken, setupNotificationHandlers } from '../src/lib/notifications';
 
-// Keep the splash screen visible while we fetch resources
 SplashScreen.preventAutoHideAsync();
+
+const queryClient = new QueryClient({
+  defaultOptions: {
+    queries: { staleTime: 5 * 60 * 1000, retry: 2 },
+  },
+});
+
+function AuthGuard() {
+  const { isSignedIn, isLoading, hydrate } = useAuthStore();
+  const segments = useSegments();
+  const router = useRouter();
+
+  useEffect(() => { hydrate(); }, []);
+
+  useEffect(() => {
+    if (isLoading) return;
+    const inAuth = segments[0] === 'login' || segments[0] === 'signup' || segments[0] === 'index' || segments[0] === 'splash' || segments[0] === 'forgot-password' || segments[0] === 'reset-password';
+    if (!isSignedIn && !inAuth) router.replace('/login');
+    else if (isSignedIn && inAuth) router.replace('/home');
+  }, [isSignedIn, isLoading, segments]);
+
+  // Register FCM token and wire notification deep-links once signed in
+  useEffect(() => {
+    if (!isSignedIn) return;
+    registerFcmToken();
+    const cleanup = setupNotificationHandlers(router);
+    return cleanup;
+  }, [isSignedIn]);
+
+  return <Slot />;
+}
 
 export default function RootLayout() {
   const [fontsLoaded, fontError] = useFonts({
@@ -23,41 +56,18 @@ export default function RootLayout() {
   });
 
   useEffect(() => {
-    if (fontsLoaded || fontError) {
-      SplashScreen.hideAsync();
-    }
+    if (fontsLoaded || fontError) SplashScreen.hideAsync();
   }, [fontsLoaded, fontError]);
 
-  if (!fontsLoaded && !fontError) {
-    return null;
-  }
+  if (!fontsLoaded && !fontError) return null;
 
   return (
-    <VendorProvider>
-      <Stack
-        screenOptions={{
-          headerShown: false,
-        }}
-      >
-        <Stack.Screen name="splash" />
-        <Stack.Screen name="login" />
-        <Stack.Screen name="signup" />
-        <Stack.Screen name="index" />
-        <Stack.Screen name="home" />
-        <Stack.Screen name="feed" />
-        <Stack.Screen name="wardrobe" />
-        <Stack.Screen name="rate" />
-        <Stack.Screen name="messages" />
-        <Stack.Screen name="conversation" />
-        <Stack.Screen name="search" />
-        <Stack.Screen name="profile" />
-        <Stack.Screen name="settings" />
-        <Stack.Screen name="vendor-registration" />
-        <Stack.Screen name="screens/vendor/dashboard" />
-        <Stack.Screen name="screens/vendor/inventory" />
-        <Stack.Screen name="screens/vendor/ads" />
-        <Stack.Screen name="screens/vendor/analytics" />
-      </Stack>
-    </VendorProvider>
+    <ErrorBoundary>
+      <QueryClientProvider client={queryClient}>
+        <VendorProvider>
+          <AuthGuard />
+        </VendorProvider>
+      </QueryClientProvider>
+    </ErrorBoundary>
   );
 }

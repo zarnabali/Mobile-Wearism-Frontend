@@ -13,6 +13,9 @@ import { Link } from 'expo-router';
 import { Ionicons } from '@expo/vector-icons';
 import BackgroundImage from './components/BackgroundImage';
 import { useRouter } from 'expo-router';
+import { useAuthStore } from '../src/stores/authStore';
+import { ActivityIndicator } from 'react-native';
+import * as WebBrowser from 'expo-web-browser';
 
 const SignupScreen = () => {
   const router = useRouter();
@@ -34,7 +37,12 @@ const SignupScreen = () => {
     }));
   };
 
-  const handleSignup = () => {
+  const { signup } = useAuthStore();
+  const [loading, setLoading] = useState(false);
+  const [done, setDone] = useState(false);
+  const [gdprConsent, setGdprConsent] = useState(false);
+
+  const handleSignup = async () => {
     setError(null);
     const { firstName, lastName, email, password, confirmPassword } = formData;
     if (!firstName || !lastName || !email || !password || !confirmPassword) {
@@ -45,9 +53,21 @@ const SignupScreen = () => {
       setError('Passwords do not match');
       return;
     }
+    if (!gdprConsent) {
+      setError('You must accept the privacy policy.');
+      return;
+    }
     
-    // UI only - no backend call; go to home/feed
-    router.replace('/home');
+    setLoading(true);
+    try {
+      const fullName = `${firstName.trim()} ${lastName.trim()}`;
+      await signup(email, password, fullName);
+      setDone(true);
+    } catch (err: any) {
+      setError(err.response?.data?.error || 'Signup failed.');
+    } finally {
+      setLoading(false);
+    }
   };
 
   return (
@@ -86,7 +106,19 @@ const SignupScreen = () => {
                     Start your fashion journey with us
                   </Text>
 
-                  {/* First Name Input */}
+                  {/* Main Form Fields — Hide after success */}
+                  {done ? (
+                    <View className="bg-white/10 rounded-2xl p-6 border border-white/20 mb-6">
+                      <Text style={{ fontFamily: 'HelveticaNeue-Bold' }} className="text-white text-xl">
+                        Check your email
+                      </Text>
+                      <Text className="text-white/60 mt-2" style={{ fontFamily: 'HelveticaNeue' }}>
+                        We sent a verification link to {formData.email}. Click it to activate your account.
+                      </Text>
+                    </View>
+                  ) : (
+                    <>
+                      {/* First Name Input */}
                   <View className="mb-4">
                     <Text
                       className="text-white text-sm font-medium mb-2"
@@ -97,14 +129,14 @@ const SignupScreen = () => {
                     <View className="bg-white/10 rounded-xl px-4 py-4 flex-row items-center border border-white/20">
                       <Ionicons name="person-outline" size={20} color="#FF6B35" />
                       <TextInput
-                        className="flex-1 ml-3 text-white text-base"
+                        className="flex-1 ml-3 text-white text-[16px]"
                         placeholder="Enter your first name"
                         placeholderTextColor="rgba(255,255,255,0.6)"
                         value={formData.firstName}
                         onChangeText={(value: string) => handleInputChange('firstName', value)}
                         autoCapitalize="words"
                         autoCorrect={false}
-                        style={{ fontFamily: 'HelveticaNeue', color: '#ffffff' }}
+                        style={{ paddingVertical: 0,  fontFamily: 'HelveticaNeue', color: '#ffffff' }}
                       />
                     </View>
                   </View>
@@ -120,14 +152,14 @@ const SignupScreen = () => {
                     <View className="bg-white/10 rounded-xl px-4 py-4 flex-row items-center border border-white/20">
                       <Ionicons name="person-outline" size={20} color="#FF6B35" />
                       <TextInput
-                        className="flex-1 ml-3 text-white text-base"
+                        className="flex-1 ml-3 text-white text-[16px]"
                         placeholder="Enter your last name"
                         placeholderTextColor="rgba(255,255,255,0.6)"
                         value={formData.lastName}
                         onChangeText={(value: string) => handleInputChange('lastName', value)}
                         autoCapitalize="words"
                         autoCorrect={false}
-                        style={{ fontFamily: 'HelveticaNeue', color: '#ffffff' }}
+                        style={{ paddingVertical: 0,  fontFamily: 'HelveticaNeue', color: '#ffffff' }}
                       />
                     </View>
                   </View>
@@ -143,7 +175,7 @@ const SignupScreen = () => {
                     <View className="bg-white/10 rounded-xl px-4 py-4 flex-row items-center border border-white/20">
                       <Ionicons name="mail-outline" size={20} color="#FF6B35" />
                       <TextInput
-                        className="flex-1 ml-3 text-white text-base"
+                        className="flex-1 ml-3 text-white text-[16px]"
                         placeholder="Enter your email"
                         placeholderTextColor="rgba(255,255,255,0.6)"
                         value={formData.email}
@@ -151,7 +183,7 @@ const SignupScreen = () => {
                         keyboardType="email-address"
                         autoCapitalize="none"
                         autoCorrect={false}
-                        style={{ fontFamily: 'HelveticaNeue', color: '#ffffff' }}
+                        style={{ paddingVertical: 0,  fontFamily: 'HelveticaNeue', color: '#ffffff' }}
                       />
                     </View>
                   </View>
@@ -167,7 +199,7 @@ const SignupScreen = () => {
                     <View className="bg-white/10 rounded-xl px-4 py-4 flex-row items-center border border-white/20">
                       <Ionicons name="lock-closed-outline" size={20} color="#FF6B35" />
                       <TextInput
-                        className="flex-1 ml-3 text-white text-base"
+                        className="flex-1 ml-3 text-white text-[16px]"
                         placeholder="Enter your password"
                         placeholderTextColor="rgba(255,255,255,0.6)"
                         value={formData.password}
@@ -175,7 +207,7 @@ const SignupScreen = () => {
                         secureTextEntry={!showPassword}
                         autoCapitalize="none"
                         autoCorrect={false}
-                        style={{ fontFamily: 'HelveticaNeue', color: '#ffffff' }}
+                        style={{ paddingVertical: 0,  fontFamily: 'HelveticaNeue', color: '#ffffff' }}
                       />
                       <TouchableOpacity
                         onPress={() => setShowPassword(!showPassword)}
@@ -201,7 +233,7 @@ const SignupScreen = () => {
                     <View className="bg-white/10 rounded-xl px-4 py-4 flex-row items-center border border-white/20">
                       <Ionicons name="lock-closed-outline" size={20} color="#FF6B35" />
                       <TextInput
-                        className="flex-1 ml-3 text-white text-base"
+                        className="flex-1 ml-3 text-white text-[16px]"
                         placeholder="Confirm your password"
                         placeholderTextColor="rgba(255,255,255,0.6)"
                         value={formData.confirmPassword}
@@ -209,7 +241,7 @@ const SignupScreen = () => {
                         secureTextEntry={!showConfirmPassword}
                         autoCapitalize="none"
                         autoCorrect={false}
-                        style={{ fontFamily: 'HelveticaNeue', color: '#ffffff' }}
+                        style={{ paddingVertical: 0,  fontFamily: 'HelveticaNeue', color: '#ffffff' }}
                       />
                       <TouchableOpacity
                         onPress={() => setShowConfirmPassword(!showConfirmPassword)}
@@ -238,36 +270,57 @@ const SignupScreen = () => {
                     className="py-4 rounded-full mb-4"
                     onPress={handleSignup}
                     activeOpacity={0.8}
+                    disabled={loading}
                     style={{ backgroundColor: '#FF6B35' }}
                   >
-                    <Text
-                      className="text-white text-center text-lg font-semibold"
-                      style={{ fontFamily: 'HelveticaNeue-Heavy' }}
+                    {loading ? (
+                      <ActivityIndicator color="white" />
+                    ) : (
+                      <Text
+                        className="text-white text-center text-lg font-semibold"
+                        style={{ fontFamily: 'HelveticaNeue-Heavy' }}
+                      >
+                        Create Account
+                      </Text>
+                    )}
+                  </TouchableOpacity>
+                  </>
+                  )}
+
+                  {/* GDPR Consent Checkbox */}
+                  <TouchableOpacity
+                    onPress={() => setGdprConsent(!gdprConsent)}
+                    className="flex-row items-start mb-6"
+                    activeOpacity={0.7}
+                  >
+                    <View
+                      style={{
+                        width: 20,
+                        height: 20,
+                        borderRadius: 6,
+                        borderWidth: 1.5,
+                        borderColor: gdprConsent ? '#FF6B35' : 'rgba(255,255,255,0.3)',
+                        backgroundColor: gdprConsent ? '#FF6B35' : 'transparent',
+                        alignItems: 'center',
+                        justifyContent: 'center',
+                        marginTop: 1,
+                        marginRight: 10,
+                        flexShrink: 0,
+                      }}
                     >
-                      Create Account
+                      {gdprConsent && <Ionicons name="checkmark" size={13} color="#fff" />}
+                    </View>
+                    <Text className="flex-1 text-white/60 text-xs leading-relaxed" style={{ fontFamily: 'HelveticaNeue' }}>
+                      I agree to the{' '}
+                      <Text
+                        style={{ fontFamily: 'HelveticaNeue', color: '#FF6B35' }}
+                        onPress={() => WebBrowser.openBrowserAsync('https://wearism.ai/privacy')}
+                      >
+                        Privacy Policy
+                      </Text>
+                      {' '}and consent to Wearism collecting and processing my personal data (name, email, body measurements) in accordance with GDPR.
                     </Text>
                   </TouchableOpacity>
-
-                  {/* Terms and Conditions */}
-                  <Text
-                    className="text-white/60 text-xs text-center mb-6 leading-relaxed"
-                    style={{ fontFamily: 'HelveticaNeue' }}
-                  >
-                    By creating an account, you agree to our{' '}
-                    <Text
-                      className="text-orange-400"
-                      style={{ fontFamily: 'HelveticaNeue', color: '#FF6B35' }}
-                    >
-                      Terms of Service
-                    </Text>
-                    {' '}and{' '}
-                    <Text
-                      className="text-orange-400"
-                      style={{ fontFamily: 'HelveticaNeue', color: '#FF6B35' }}
-                    >
-                      Privacy Policy
-                    </Text>
-                  </Text>
 
                   {/* Login Link */}
                   <View className="flex-row justify-center items-center">

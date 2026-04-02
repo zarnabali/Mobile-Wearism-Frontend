@@ -1,36 +1,74 @@
 import React, { useState } from 'react';
-import { View, Text, ScrollView, ImageBackground, Image, TouchableOpacity } from 'react-native';
+import { View, Text, ScrollView, ImageBackground, Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { router } from 'expo-router';
 import BottomNav from './components/BottomNav';
 import Settings from './settings';
 import { useVendor } from './contexts/VendorContext';
-
-const profilePosts = [
-  { id: 'p1', img: require('../assets/pictures/social2.jpeg') },
-  { id: 'p2', img: require('../assets/pictures/wardrobe2.jpeg') },
-  { id: 'p3', img: require('../assets/pictures/shop.jpeg') },
-  { id: 'p4', img: require('../assets/pictures/social4.jpeg') },
-  { id: 'p5', img: require('../assets/pictures/shop2.jpeg') },
-  { id: 'p6', img: require('../assets/pictures/social.jpeg') },
-];
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { apiClient } from '../src/lib/apiClient';
+import * as ImagePicker from 'expo-image-picker';
+import { Skeleton } from '../src/components/Skeleton';
 
 const ProfileScreen = () => {
   const [settingsVisible, setSettingsVisible] = useState(false);
+  const queryClient = useQueryClient();
+  const { vendorData } = useVendor();
 
-  let vendorData = { isVendor: false, brandName: '', brandType: null, categories: [], description: '', logo: null, banner: null, contactEmail: '', socialLinks: {} };
-  try {
-    const vendor = useVendor();
-    vendorData = vendor.vendorData;
-  } catch (error) {
-    console.log('VendorContext error:', error);
-  }
+  const { data, isLoading } = useQuery({
+    queryKey: ['my-profile'],
+    queryFn: () => apiClient.get('/user/profile').then(r => r.data),
+  });
+
+  const { data: postsData, isLoading: postsLoading } = useQuery({
+    queryKey: ['my-posts'],
+    queryFn: () => apiClient.get('/user/me/posts').then(r => r.data),
+  });
+
+  const profile = data?.profile;
+  const completionScore = data?.completion_score ?? 0;
+  const myPosts: { id: string; image_url: string }[] = postsData?.posts ?? [];
+
+  const pickAndUploadAvatar = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.8,
+    });
+    if (result.canceled) return;
+
+    const asset = result.assets[0];
+    const form = new FormData();
+    form.append('file', {
+      uri: asset.uri,
+      name: asset.uri.split('/').pop() || 'avatar.jpg',
+      type: 'image/jpeg',
+    } as any);
+
+    try {
+      await apiClient.post('/user/profile/avatar', form, {
+        headers: { 'Content-Type': 'multipart/form-data' },
+      });
+      queryClient.invalidateQueries({ queryKey: ['my-profile'] });
+    } catch (err) {
+      Alert.alert('Upload Failed', 'Could not upload your photo.');
+    }
+  };
 
   const handleSettingsPress = () => {
-    console.log('Settings button pressed!');
     setSettingsVisible(true);
   };
+
+  if (isLoading) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#FF6B35" />
+      </View>
+    );
+  }
 
   return (
     <View className="flex-1 bg-black">
@@ -62,14 +100,29 @@ const ProfileScreen = () => {
               <View className="px-5 pb-6">
                 <View className="flex-row items-end justify-between">
                   <View className="flex-row items-center">
-                    <Image
-                      source={require('../assets/pictures/social.jpeg')}
-                      style={{ width: 80, height: 80, borderRadius: 24, borderWidth: 2, borderColor: '#FF6B35' }}
-                    />
+                    <TouchableOpacity onPress={pickAndUploadAvatar} className="relative">
+                      {profile?.avatar_url ? (
+                        <Image
+                          source={{ uri: profile.avatar_url }}
+                          style={{ width: 80, height: 80, borderRadius: 24, borderWidth: 2, borderColor: '#FF6B35' }}
+                        />
+                      ) : (
+                        <View
+                          style={{ width: 80, height: 80, borderRadius: 24, borderWidth: 2, borderColor: '#FF6B35', backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}
+                        >
+                          <Ionicons name="person" size={40} color="rgba(255,255,255,0.3)" />
+                        </View>
+                      )}
+                      <View
+                        className="absolute -bottom-1 -right-1 bg-black/60 p-1.5 rounded-lg border border-white/20"
+                      >
+                        <Ionicons name="camera" color="#FF6B35" size={14} />
+                      </View>
+                    </TouchableOpacity>
                     <View className="ml-4 mb-1">
                       <View className="flex-row items-center gap-2">
                         <Text className="text-white text-3xl font-bold" style={{ fontFamily: 'HelveticaNeue-Bold' }}>
-                          Leslie Fox
+                          {profile?.full_name ?? 'Your Name'}
                         </Text>
                         {vendorData.isVendor && (
                           <View className="bg-[#FF6B35] px-2 py-1 rounded-lg">
@@ -80,8 +133,21 @@ const ProfileScreen = () => {
                         )}
                       </View>
                       <Text className="text-white/70 text-base" style={{ fontFamily: 'HelveticaNeue' }}>
-                        @leslie.wearism
+                        {profile?.email ?? ''}
                       </Text>
+
+                      {/* Completion bar */}
+                      <View className="w-48 mt-2">
+                        <View className="w-full bg-white/10 rounded-full h-1">
+                          <View
+                            className="bg-[#FF6B35] h-1 rounded-full"
+                            style={{ width: `${completionScore}%` }}
+                          />
+                        </View>
+                        <Text className="text-white/40 text-[10px] mt-1" style={{ fontFamily: 'HelveticaNeue' }}>
+                          {completionScore}% complete
+                        </Text>
+                      </View>
                     </View>
                   </View>
                 </View>
@@ -89,7 +155,7 @@ const ProfileScreen = () => {
                 <View className="flex-row mt-6 justify-between bg-white/10 rounded-2xl p-4 border border-white/10 backdrop-blur-sm">
                   <View className="items-center flex-1 border-r border-white/10">
                     <Text className="text-white text-xl font-bold" style={{ fontFamily: 'HelveticaNeue-Bold' }}>
-                      12.3k
+                      {profile?.followers_count ?? 0}
                     </Text>
                     <Text className="text-white/60 text-xs uppercase tracking-wider mt-1" style={{ fontFamily: 'HelveticaNeue-Medium' }}>
                       Followers
@@ -97,7 +163,7 @@ const ProfileScreen = () => {
                   </View>
                   <View className="items-center flex-1 border-r border-white/10">
                     <Text className="text-white text-xl font-bold" style={{ fontFamily: 'HelveticaNeue-Bold' }}>
-                      842
+                      {profile?.following_count ?? 0}
                     </Text>
                     <Text className="text-white/60 text-xs uppercase tracking-wider mt-1" style={{ fontFamily: 'HelveticaNeue-Medium' }}>
                       Following
@@ -105,7 +171,7 @@ const ProfileScreen = () => {
                   </View>
                   <View className="items-center flex-1">
                     <Text className="text-white text-xl font-bold" style={{ fontFamily: 'HelveticaNeue-Bold' }}>
-                      156
+                      {profile?.posts_count ?? 0}
                     </Text>
                     <Text className="text-white/60 text-xs uppercase tracking-wider mt-1" style={{ fontFamily: 'HelveticaNeue-Medium' }}>
                       Posts
@@ -132,20 +198,39 @@ const ProfileScreen = () => {
               </Text>
               <Ionicons name="grid-outline" size={20} color="rgba(255,255,255,0.5)" />
             </View>
-            <View className="flex-row flex-wrap -mx-1">
-              {profilePosts.map((post) => (
-                <View key={post.id} className="w-1/3 px-1 mb-2">
-                  <TouchableOpacity activeOpacity={0.8} className="rounded-2xl overflow-hidden">
-                    <Image
-                      source={post.img}
-                      style={{ width: '100%', height: 130 }}
-                      className="border border-white/10"
-                      resizeMode="cover"
-                    />
-                  </TouchableOpacity>
-                </View>
-              ))}
-            </View>
+            {postsLoading ? (
+              <View className="flex-row flex-wrap gap-2">
+                {Array(6).fill(0).map((_, i) => (
+                  <Skeleton key={i} className="w-[31%] aspect-square" />
+                ))}
+              </View>
+            ) : myPosts.length === 0 ? (
+              <View style={{ alignItems: 'center', paddingVertical: 40 }}>
+                <Ionicons name="images-outline" size={48} color="rgba(255,255,255,0.15)" />
+                <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.4)', marginTop: 12, fontSize: 14 }}>
+                  No posts yet
+                </Text>
+              </View>
+            ) : (
+              <View className="flex-row flex-wrap -mx-1">
+                {myPosts.map((post) => (
+                  <View key={post.id} className="w-1/3 px-1 mb-2">
+                    <TouchableOpacity
+                      activeOpacity={0.8}
+                      className="rounded-2xl overflow-hidden"
+                      onPress={() => router.push(`/social/post-detail?id=${post.id}` as any)}
+                    >
+                      <Image
+                        source={{ uri: post.image_url }}
+                        style={{ width: '100%', height: 130 }}
+                        className="border border-white/10"
+                        resizeMode="cover"
+                      />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+              </View>
+            )}
           </View>
         </ScrollView>
         <BottomNav active="profile" />

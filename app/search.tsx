@@ -39,8 +39,8 @@ const SearchScreen = () => {
               <TextInput
                 placeholder="Search"
                 placeholderTextColor="rgba(255,255,255,0.6)"
-                className="flex-1 ml-3 text-white text-base"
-                style={{ fontFamily: 'HelveticaNeue' }}
+                className="flex-1 ml-3 text-white text-[16px]"
+                style={{ paddingVertical: 0,  fontFamily: 'HelveticaNeue' }}
               />
             </View>
 

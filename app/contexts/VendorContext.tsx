@@ -1,5 +1,7 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import React, { createContext, useContext, useState } from 'react';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../../src/lib/apiClient';
+import { useAuthStore } from '../../src/stores/authStore';
 
 export interface VendorData {
     isVendor: boolean;
@@ -21,7 +23,7 @@ interface VendorContextType {
     vendorData: VendorData;
     setVendorMode: (mode: boolean) => void;
     updateVendorData: (data: Partial<VendorData>) => void;
-    registerAsVendor: (data: Omit<VendorData, 'isVendor'>) => void;
+    isLoadingVendor: boolean;
 }
 
 const defaultVendorData: VendorData = {
@@ -40,66 +42,39 @@ const VendorContext = createContext<VendorContextType | undefined>(undefined);
 
 export const VendorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [isVendorMode, setIsVendorMode] = useState(false);
-    const [vendorData, setVendorData] = useState<VendorData>(defaultVendorData);
+    const isSignedIn = useAuthStore((s) => s.isSignedIn);
 
-    // Load vendor data on mount
-    useEffect(() => {
-        loadVendorData();
-    }, []);
+    const { data: apiVendor, isLoading: isLoadingVendor } = useQuery({
+        queryKey: ['vendor-me'],
+        queryFn: () => apiClient.get('/vendors/me').then((r) => r.data),
+        enabled: isSignedIn,
+        retry: false,
+        staleTime: 5 * 60 * 1000,
+    });
 
-    // Save vendor data whenever it changes
-    useEffect(() => {
-        saveVendorData();
-    }, [vendorData, isVendorMode]);
+    const vendorData: VendorData = apiVendor?.vendor
+        ? {
+              isVendor: true,
+              brandName: apiVendor.vendor.brand_name ?? '',
+              brandType: apiVendor.vendor.brand_type ?? null,
+              categories: apiVendor.vendor.categories ?? [],
+              description: apiVendor.vendor.description ?? '',
+              logo: apiVendor.vendor.logo_url ?? null,
+              banner: apiVendor.vendor.banner_url ?? null,
+              contactEmail: apiVendor.vendor.contact_email ?? '',
+              socialLinks: apiVendor.vendor.social_links ?? {},
+          }
+        : defaultVendorData;
 
-    const loadVendorData = async () => {
-        try {
-            const storedMode = await AsyncStorage.getItem('vendorMode');
-            const storedData = await AsyncStorage.getItem('vendorData');
+    const setVendorMode = (mode: boolean) => setIsVendorMode(mode);
 
-            if (storedMode !== null) {
-                setIsVendorMode(JSON.parse(storedMode));
-            }
-
-            if (storedData !== null) {
-                setVendorData(JSON.parse(storedData));
-            }
-        } catch (error) {
-            console.error('Failed to load vendor data:', error);
-        }
-    };
-
-    const saveVendorData = async () => {
-        try {
-            await AsyncStorage.setItem('vendorMode', JSON.stringify(isVendorMode));
-            await AsyncStorage.setItem('vendorData', JSON.stringify(vendorData));
-        } catch (error) {
-            console.error('Failed to save vendor data:', error);
-        }
-    };
-
-    const setVendorMode = (mode: boolean) => {
-        setIsVendorMode(mode);
-    };
-
-    const updateVendorData = (data: Partial<VendorData>) => {
-        setVendorData((prev) => ({ ...prev, ...data }));
-    };
-
-    const registerAsVendor = (data: Omit<VendorData, 'isVendor'>) => {
-        setVendorData({ ...data, isVendor: true });
-        setIsVendorMode(false); // Start in user mode, they can switch later
+    const updateVendorData = (_data: Partial<VendorData>) => {
+        // Local updates are handled via API mutations; invalidate ['vendor-me'] after changes
     };
 
     return (
         <VendorContext.Provider
-            value={{
-                isVendorMode,
-                vendorData,
-                setVendorMode,
-                updateVendorData,
-                registerAsVendor,
-            }}
+            value={{ isVendorMode, vendorData, setVendorMode, updateVendorData, isLoadingVendor }}
         >
             {children}
         </VendorContext.Provider>
@@ -114,5 +89,4 @@ export const useVendor = () => {
     return context;
 };
 
-// Default export to prevent expo-router treating this as a route
 export default VendorProvider;

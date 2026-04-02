@@ -12,7 +12,14 @@
       "backgroundColor": "#ffffff"
     },
     "ios": {
-      "supportsTablet": true
+      "supportsTablet": true,
+      "bundleIdentifier": "com.wearism.app",
+      "infoPlist": {
+        "NSPhotoLibraryUsageDescription": "Wearism needs photo access to upload wardrobe items and post images.",
+        "NSCameraUsageDescription": "Wearism needs camera access to photograph wardrobe items.",
+        "NSUserNotificationsUsageDescription": "Wearism sends notifications for likes, follows, and order updates.",
+        "NSLocationWhenInUseUsageDescription": "Used to suggest nearby vendors."
+      }
     },
     "android": {
       "package": "com.wearism.app",
@@ -25,7 +32,11 @@
       "predictiveBackGestureEnabled": false,
       "permissions": [
         "INTERNET",
-        "ACCESS_NETWORK_STATE"
+        "ACCESS_NETWORK_STATE",
+        "READ_MEDIA_IMAGES",
+        "CAMERA",
+        "RECEIVE_BOOT_COMPLETED",
+        "VIBRATE"
       ]
     },
     "web": {
@@ -35,7 +46,11 @@
     "scheme": "wearism",
     "plugins": [
       "expo-font",
-      "expo-router"
+      "expo-router",
+      "expo-secure-store",
+      "expo-web-browser",
+      "@react-native-firebase/app",
+      "@react-native-firebase/messaging"
     ],
     "extra": {
       "router": {},
