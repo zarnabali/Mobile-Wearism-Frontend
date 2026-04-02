@@ -22,14 +22,10 @@ const ProfileScreen = () => {
     queryFn: () => apiClient.get('/user/profile').then(r => r.data),
   });
 
-  const { data: postsData, isLoading: postsLoading } = useQuery({
-    queryKey: ['my-posts'],
-    queryFn: () => apiClient.get('/user/me/posts').then(r => r.data),
-  });
-
   const profile = data?.profile;
   const completionScore = data?.completion_score ?? 0;
-  const myPosts: { id: string; image_url: string }[] = postsData?.posts ?? [];
+  const postsLoading = isLoading || !profile;
+  const myPosts: { id: string; image_url: string }[] = profile?.recent_posts ?? [];
 
   const pickAndUploadAvatar = async () => {
     const result = await ImagePicker.launchImageLibraryAsync({
@@ -42,19 +38,23 @@ const ProfileScreen = () => {
 
     const asset = result.assets[0];
     const form = new FormData();
+    const mimeType = asset.mimeType || (asset as any).type || 'image/jpeg';
+    const filename = asset.fileName || asset.uri.split('/').pop() || 'avatar.jpg';
     form.append('file', {
       uri: asset.uri,
-      name: asset.uri.split('/').pop() || 'avatar.jpg',
-      type: 'image/jpeg',
+      name: filename,
+      type: mimeType,
     } as any);
 
     try {
-      await apiClient.post('/user/profile/avatar', form, {
-        headers: { 'Content-Type': 'multipart/form-data' },
-      });
+      // IMPORTANT: Do not set Content-Type manually; axios needs to add the multipart boundary.
+      await apiClient.post('/user/profile/avatar', form);
       queryClient.invalidateQueries({ queryKey: ['my-profile'] });
     } catch (err) {
-      Alert.alert('Upload Failed', 'Could not upload your photo.');
+      Alert.alert(
+        'Upload Failed',
+        (err as any)?.response?.data?.error || 'Could not upload your photo.'
+      );
     }
   };
 
@@ -196,13 +196,25 @@ const ProfileScreen = () => {
               <Text className="text-white text-xl font-medium" style={{ fontFamily: 'HelveticaNeue-Medium' }}>
                 Recent posts
               </Text>
-              <Ionicons name="grid-outline" size={20} color="rgba(255,255,255,0.5)" />
+              <View className="flex-row items-center gap-3">
+                <TouchableOpacity
+                  onPress={() => router.push('/social/create-post' as any)}
+                  className="p-1"
+                >
+                  <Ionicons name="add-circle" size={22} color="#FF6B35" />
+                </TouchableOpacity>
+                <Ionicons name="grid-outline" size={20} color="rgba(255,255,255,0.5)" />
+              </View>
             </View>
             {postsLoading ? (
-              <View className="flex-row flex-wrap gap-2">
-                {Array(6).fill(0).map((_, i) => (
-                  <Skeleton key={i} className="w-[31%] aspect-square" />
-                ))}
+              <View className="flex-row flex-wrap -mx-1">
+                {Array(6)
+                  .fill(0)
+                  .map((_, i) => (
+                    <View key={i} className="w-1/3 px-1 mb-2">
+                      <Skeleton className="w-full aspect-square rounded-2xl" />
+                    </View>
+                  ))}
               </View>
             ) : myPosts.length === 0 ? (
               <View style={{ alignItems: 'center', paddingVertical: 40 }}>
@@ -222,7 +234,7 @@ const ProfileScreen = () => {
                     >
                       <Image
                         source={{ uri: post.image_url }}
-                        style={{ width: '100%', height: 130 }}
+                        style={{ width: '100%', aspectRatio: 1 }}
                         className="border border-white/10"
                         resizeMode="cover"
                       />

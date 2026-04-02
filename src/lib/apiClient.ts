@@ -6,7 +6,9 @@ const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL!;
 export const apiClient = axios.create({
   baseURL: BASE_URL,
   timeout: 15000,
-  headers: { 'Content-Type': 'application/json' },
+  // IMPORTANT: Do not force Content-Type globally.
+  // Axios needs to manage multipart boundaries for FormData requests.
+  // For JSON requests, we'll set Content-Type per-request in the interceptor.
 });
 
 // ─── Request interceptor — inject Bearer token ────────────────────────────
@@ -17,6 +19,21 @@ apiClient.interceptors.request.use(async (config) => {
   } catch {
     // SecureStore unavailable (simulator quirk) — proceed without token
   }
+
+  // If request body is FormData, do not set JSON Content-Type.
+  // Otherwise, ensure JSON requests send the correct header.
+  const isFormData =
+    typeof FormData !== 'undefined' && config.data instanceof FormData;
+
+  if (!isFormData) {
+    config.headers['Content-Type'] = config.headers['Content-Type'] ?? 'application/json';
+  } else {
+    // Let axios/browser/RN set the correct multipart boundary.
+    if (config.headers?.['Content-Type'] === 'application/json') {
+      delete config.headers['Content-Type'];
+    }
+  }
+
   return config;
 });
 
