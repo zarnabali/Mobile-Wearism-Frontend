@@ -1,7 +1,7 @@
-import React from 'react';
+import React, { useState } from 'react';
 import {
   View, Text, ScrollView, Image, TouchableOpacity,
-  ActivityIndicator, Alert,
+  ActivityIndicator, Alert, StyleSheet,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +9,45 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { apiClient } from '../../src/lib/apiClient';
+
+function OutfitItemThumbnail({ uri }: { uri?: string | null }) {
+  const [loaded, setLoaded] = useState(false);
+  const [failed, setFailed] = useState(false);
+
+  if (!uri) {
+    return (
+      <View className="w-full h-full items-center justify-center bg-white/5">
+        <Ionicons name="image-outline" size={28} color="rgba(255,255,255,0.25)" />
+      </View>
+    );
+  }
+
+  return (
+    <View className="w-full h-full">
+      {!loaded && !failed && (
+        <View style={[StyleSheet.absoluteFillObject]} className="items-center justify-center bg-white/5">
+          <ActivityIndicator size="small" color="#FF6B35" />
+        </View>
+      )}
+      <Image
+        source={{ uri }}
+        className="w-full h-full"
+        style={{ backgroundColor: '#111', opacity: loaded && !failed ? 1 : 0 }}
+        resizeMode="cover"
+        onLoad={() => setLoaded(true)}
+        onError={() => {
+          setFailed(true);
+          setLoaded(true);
+        }}
+      />
+      {failed && (
+        <View style={[StyleSheet.absoluteFillObject]} className="items-center justify-center bg-white/5">
+          <Ionicons name="image-outline" size={28} color="rgba(255,255,255,0.25)" />
+        </View>
+      )}
+    </View>
+  );
+}
 
 export default function OutfitDetailScreen() {
   const { id } = useLocalSearchParams<{ id: string }>();
@@ -19,9 +58,24 @@ export default function OutfitDetailScreen() {
     queryKey: ['outfit', id],
     queryFn: () => apiClient.get(`/wardrobe/outfits/${id}`).then(r => r.data),
     enabled: !!id,
+    refetchInterval: (query) => {
+      const outfit = query.state.data?.outfit ?? query.state.data?.data ?? query.state.data;
+      return outfit?.ai_rating ? false : 3000;
+    },
   });
 
-  const outfit = data?.outfit ?? data?.data ?? data;
+  const outfitRaw = data?.outfit ?? data?.data ?? data;
+  const outfitItems =
+    outfitRaw?.items ??
+    (Array.isArray(outfitRaw?.outfit_items)
+      ? [...outfitRaw.outfit_items]
+          .sort((a: { position?: number }, b: { position?: number }) =>
+            (a.position ?? 0) - (b.position ?? 0)
+          )
+          .map((row: { wardrobe_items?: unknown }) => row.wardrobe_items)
+          .filter(Boolean)
+      : []);
+  const outfit = outfitRaw ? { ...outfitRaw, items: outfitItems } : outfitRaw;
 
   const deleteMutation = useMutation({
     mutationFn: () => apiClient.delete(`/wardrobe/outfits/${id}`),
@@ -148,11 +202,7 @@ export default function OutfitDetailScreen() {
                     activeOpacity={0.8}
                   >
                     <View className="w-32 h-32 rounded-2xl overflow-hidden bg-white/5 border border-white/10">
-                      <Image
-                        source={{ uri: item.image_url }}
-                        className="w-full h-full"
-                        style={{ backgroundColor: '#111' }}
-                      />
+                      <OutfitItemThumbnail uri={item.image_url} />
                     </View>
                     <Text
                       style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}

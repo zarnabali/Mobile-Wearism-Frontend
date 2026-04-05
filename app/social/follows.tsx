@@ -29,7 +29,7 @@ export default function FollowsScreen() {
     <View className="flex-row items-center justify-between px-5 h-14 border-b border-white/5">
       <TouchableOpacity
         className="flex-row items-center flex-1"
-        onPress={() => router.push(`/profile?id=${item.id}` as any)}
+        onPress={() => router.push(`/profile/${item.id}` as any)}
       >
         {item.avatar_url ? (
           <Image source={{ uri: item.avatar_url }} style={{ width: 48, height: 48, borderRadius: 24 }} />

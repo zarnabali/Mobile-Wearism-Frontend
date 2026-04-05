@@ -35,7 +35,7 @@ export function LikeButton({ post, feedType, size = 24, showCount = true }: Like
             ...old,
             pages: old.pages.map((page: any) => ({
               ...page,
-              posts: page.posts.map((p: any) =>
+              data: (page.data ?? page.posts ?? []).map((p: any) =>
                 p.id !== post.id
                   ? p
                   : {
@@ -74,7 +74,6 @@ export function LikeButton({ post, feedType, size = 24, showCount = true }: Like
       if (ctx?.postKey && ctx?.prevPost) qc.setQueryData(ctx.postKey, ctx.prevPost);
     },
     onSettled: () => {
-      if (feedType) qc.invalidateQueries({ queryKey: ['feed', feedType] });
       qc.invalidateQueries({ queryKey: ['post', post.id] });
     },
   });

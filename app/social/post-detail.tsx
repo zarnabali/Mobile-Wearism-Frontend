@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useMemo } from 'react';
 import {
   View, Text, ScrollView, Image, TouchableOpacity,
   TextInput, KeyboardAvoidingView, Platform, ActivityIndicator, Alert,
@@ -100,8 +100,23 @@ function CommentRow({
 export default function PostDetailScreen() {
   const router = useRouter();
   const qc = useQueryClient();
-  const { id } = useLocalSearchParams<{ id: string }>();
+  const params = useLocalSearchParams<{ id: string; fromProfileId?: string | string[] }>();
+  const id = params.id != null ? String(Array.isArray(params.id) ? params.id[0] : params.id) : '';
+  const fromProfileId = useMemo(() => {
+    const raw = params.fromProfileId;
+    if (raw == null) return undefined;
+    const s = Array.isArray(raw) ? raw[0] : raw;
+    return s ? decodeURIComponent(s) : undefined;
+  }, [params.fromProfileId]);
   const currentUserId = useAuthStore(s => s.user?.id);
+
+  const goBackFromPost = useCallback(() => {
+    if (fromProfileId) {
+      router.replace(`/profile/${fromProfileId}` as any);
+      return;
+    }
+    router.back();
+  }, [fromProfileId, router]);
 
   const [commentText, setCommentText] = useState('');
   const [replyTo, setReplyTo] = useState<{ id: string; username: string } | null>(null);
@@ -157,7 +172,9 @@ export default function PostDetailScreen() {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['feed', 'home'] });
       qc.invalidateQueries({ queryKey: ['posts', currentUserId] });
-      router.back();
+      qc.invalidateQueries({ queryKey: ['my-profile'] });
+      if (fromProfileId) router.replace(`/profile/${fromProfileId}` as any);
+      else router.back();
     },
     onError: () => Alert.alert('Error', 'Could not delete post. Try again.'),
   });
@@ -189,7 +206,7 @@ export default function PostDetailScreen() {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
         <Text style={{ fontFamily: 'HelveticaNeue', color: '#fff' }}>Post not found.</Text>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 999 }}>
+        <TouchableOpacity onPress={goBackFromPost} style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 999 }}>
           <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff' }}>Go back</Text>
         </TouchableOpacity>
       </View>
@@ -203,7 +220,7 @@ export default function PostDetailScreen() {
           {/* ── Header bar ── */}
           <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.1)' }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 14 }}>
+              <TouchableOpacity onPress={goBackFromPost} style={{ marginRight: 14 }}>
                 <Ionicons name="arrow-back" size={24} color="white" />
               </TouchableOpacity>
               <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 17 }}>Post</Text>
@@ -240,7 +257,7 @@ export default function PostDetailScreen() {
               <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 }}>
                 <TouchableOpacity
                   style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
-                  onPress={() => router.push(`/profile?id=${author.id}` as any)}
+                  onPress={() => router.push(`/profile/${author.id}` as any)}
                   activeOpacity={0.8}
                 >
                   {author.avatar_url ? (

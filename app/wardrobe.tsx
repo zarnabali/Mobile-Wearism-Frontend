@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Image,
-  ActivityIndicator, RefreshControl, FlatList,
+  ActivityIndicator, RefreshControl, FlatList, Alert,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
@@ -139,13 +139,62 @@ const WardrobeScreen = () => {
   // ─── Recommendations ──────────────────────────────────────────────────────
   const { data: recsData, isLoading: recsLoading } = useQuery({
     queryKey: ['recommendations'],
-    queryFn: () => apiClient.get('/recommendations?status=scored&limit=10').then(r => r.data),
+    queryFn: () => apiClient.get('/recommendations?status=all&limit=20').then(r => r.data),
     enabled: activeTab === 'items',
+    // Poll while Celery is still rating outfits (pending → completed)
+    refetchInterval: (q) => {
+      const raw = q.state.data as { recommendations?: unknown[]; data?: unknown[] } | undefined;
+      const list = raw?.recommendations ?? raw?.data ?? [];
+      return Array.isArray(list) &&
+        list.some((r: unknown) => (r as { ai_status?: string }).ai_status === 'pending')
+        ? 8000
+        : false;
+    },
   });
 
   const generateMutation = useMutation({
-    mutationFn: () => apiClient.post('/recommendations/generate'),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['recommendations'] }),
+    // Backend schema expects a JSON object; axios was sending no body with
+    // Content-Type: application/json, which triggers AJV "Validation failed".
+    mutationFn: (vars?: { forceRefresh?: boolean }) =>
+      apiClient.post(
+        '/recommendations/generate',
+        vars?.forceRefresh ? { force_refresh: true } : {}
+      ),
+    onSuccess: (res) => {
+      qc.invalidateQueries({ queryKey: ['recommendations'] });
+      const data = res?.data;
+      if (data?.generated === 0 && typeof data?.message === 'string') {
+        Alert.alert('Recommendations', data.message, [
+          { text: 'OK', style: 'cancel' },
+          {
+            text: 'Regenerate anyway',
+            onPress: () => generateMutation.mutate({ forceRefresh: true }),
+          },
+        ]);
+      }
+    },
+    onError: (err: any) => {
+      const d = err?.response?.data;
+      let msg =
+        d?.error ??
+        d?.message ??
+        (err?.message && err.message !== 'Network Error'
+          ? err.message
+          : 'Could not generate recommendations.');
+      const details = d?.details;
+      if (Array.isArray(details) && details.length > 0) {
+        const line = details
+          .map((x: { field?: string; message?: string }) =>
+            [x.field, x.message].filter(Boolean).join(': ')
+          )
+          .join('\n');
+        msg = `${msg}\n${line}`;
+      }
+      if (err?.response?.status === 429 && d?.retryAfter) {
+        msg = `${msg} Try again in ${d.retryAfter}.`;
+      }
+      Alert.alert('Generate Failed', msg);
+    },
   });
 
   const saveMutation = useMutation({
@@ -340,7 +389,7 @@ const WardrobeScreen = () => {
                       </Text>
                     </View>
                     <TouchableOpacity
-                      onPress={() => generateMutation.mutate()}
+                      onPress={() => generateMutation.mutate(undefined)}
                       disabled={generateMutation.isPending}
                       style={{
                         flexDirection: 'row', alignItems: 'center',
@@ -366,7 +415,7 @@ const WardrobeScreen = () => {
                     <ActivityIndicator color="#FF6B35" style={{ alignSelf: 'flex-start' }} />
                   ) : recs.length === 0 ? (
                     <TouchableOpacity
-                      onPress={() => generateMutation.mutate()}
+                      onPress={() => generateMutation.mutate(undefined)}
                       disabled={generateMutation.isPending}
                       activeOpacity={0.8}
                       style={{
@@ -408,11 +457,24 @@ const WardrobeScreen = () => {
                           </View>
 
                           <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
-                            {rec.score != null && (
+                            {(rec.ai_status === 'pending' || rec.ai_status === 'processing') && (
+                              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
+                                <ActivityIndicator size="small" color="#FF6B35" style={{ marginRight: 8 }} />
+                                <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>
+                                  AI is scoring this outfit…
+                                </Text>
+                              </View>
+                            )}
+                            {rec.ai_status === 'failed' && (
+                              <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,150,120,0.9)', fontSize: 12, marginBottom: 8 }}>
+                                Couldn&apos;t score this combo. Dismiss and try Generate again.
+                              </Text>
+                            )}
+                            {rec.ai_rating != null && rec.ai_status === 'completed' && (
                               <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
                                 <Ionicons name="star" size={12} color="#FF6B35" style={{ marginRight: 4 }} />
                                 <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#FF6B35', fontSize: 13 }}>
-                                  {rec.score.toFixed(1)}
+                                  {rec.ai_rating.toFixed(1)}
                                 </Text>
                               </View>
                             )}

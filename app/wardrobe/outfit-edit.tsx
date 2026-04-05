@@ -14,9 +14,10 @@ const OCCASIONS = [
   { id: 'casual', label: 'Casual' },
   { id: 'formal', label: 'Formal' },
   { id: 'party', label: 'Party' },
-  { id: 'sport', label: 'Sport' },
-  { id: 'date', label: 'Date' },
-  { id: 'work', label: 'Work' },
+  { id: 'business', label: 'Business' },
+  { id: 'athleisure', label: 'Athleisure' },
+  { id: 'streetwear', label: 'Streetwear' },
+  { id: 'smart_casual', label: 'Smart Casual' },
 ];
 
 export default function OutfitEditScreen() {

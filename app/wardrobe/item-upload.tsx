@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
-  View, Text, TextInput, TouchableOpacity, Image,
-  ActivityIndicator, Alert, ScrollView,
+  View, Text, TouchableOpacity, Image,
+  Alert, ScrollView,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -12,96 +12,104 @@ import 'react-native-get-random-values';
 import { v4 as uuidv4 } from 'uuid';
 import { useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../../src/lib/apiClient';
-import { useAuthStore } from '../../src/stores/authStore';
-
-// Condition values must match backend enum: new, like_new, good, fair, poor
-const CONDITIONS = [
-  { value: 'new', label: 'New with tags' },
-  { value: 'like_new', label: 'Like New' },
-  { value: 'good', label: 'Good' },
-  { value: 'fair', label: 'Fair' },
-  { value: 'poor', label: 'Poor' },
-];
 
 export default function ItemUploadScreen() {
   const router = useRouter();
   const qc = useQueryClient();
-  const userId = useAuthStore(s => s.user?.id) ?? 'unknown_user';
 
-  const [imageUri, setImageUri] = useState<string | null>(null);
-  const [name, setName] = useState('');
-  const [brand, setBrand] = useState('');
-  const [condition, setCondition] = useState('');
-  const [loading, setLoading] = useState(false);
+  const [images, setImages] = useState<ImagePicker.ImagePickerAsset[]>([]);
+  const [uploading, setUploading] = useState(false);
+  const [progress, setProgress] = useState({ current: 0, total: 0 });
 
-  // ─── Pick Image ─────────────────────────────────────────────────────────
-  const pickImage = async (camera: boolean) => {
-    const opts: ImagePicker.ImagePickerOptions = {
+  // ─── Pick from Gallery (multi-select) ─────────────────────────────────────
+  const pickFromGallery = async () => {
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsMultipleSelection: true,
+      quality: 0.8,
+      selectionLimit: 20,
+    });
+
+    if (!result.canceled && result.assets.length > 0) {
+      setImages(prev => {
+        const combined = [...prev, ...result.assets];
+        if (combined.length > 20) {
+          Alert.alert('Limit reached', 'You can upload up to 20 items at once.');
+          return combined.slice(0, 20);
+        }
+        return combined;
+      });
+    }
+  };
+
+  // ─── Camera (adds one photo to the batch) ──────────────────────────────────
+  const pickFromCamera = async () => {
+    const { status } = await ImagePicker.requestCameraPermissionsAsync();
+    if (status !== 'granted') return Alert.alert('Camera access denied');
+
+    const result = await ImagePicker.launchCameraAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [3, 4],
       quality: 0.8,
-    };
+    });
 
-    let result;
-    if (camera) {
-      const { status } = await ImagePicker.requestCameraPermissionsAsync();
-      if (status !== 'granted') return Alert.alert('Camera access denied');
-      result = await ImagePicker.launchCameraAsync(opts);
-    } else {
-      result = await ImagePicker.launchImageLibraryAsync(opts);
-    }
-
-    if (!result.canceled) {
-      setImageUri(result.assets[0].uri);
+    if (!result.canceled && result.assets.length > 0) {
+      setImages(prev => {
+        if (prev.length >= 20) {
+          Alert.alert('Limit reached', 'You can upload up to 20 items at once.');
+          return prev;
+        }
+        return [...prev, result.assets[0]];
+      });
     }
   };
 
-  // ─── Upload Flow (same multipart pattern as create-post) ─────────────────
+  const removeImage = (index: number) => {
+    setImages(prev => prev.filter((_, i) => i !== index));
+  };
+
+  // ─── Batch Upload ───────────────────────────────────────────────────────────
   const handleUpload = async () => {
-    if (!imageUri) return Alert.alert('Missing Image', 'Please capture or select an image.');
+    if (images.length === 0) return Alert.alert('No images', 'Please select at least one image.');
 
-    setLoading(true);
+    setUploading(true);
+    setProgress({ current: 0, total: images.length });
+
     try {
-      const itemId = uuidv4();
-      const filename = `${itemId}.jpg`;
+      const itemIds = images.map(() => uuidv4());
 
-      // Build multipart form — backend derives storage path from userId + item_id
       const form = new FormData();
-      form.append('item_id', itemId);
-      if (name.trim()) form.append('name', name.trim());
-      if (brand.trim()) form.append('brand', brand.trim());
-      if (condition) form.append('condition', condition);
+      form.append('item_ids', JSON.stringify(itemIds));
 
-      form.append('file', {
-        uri: imageUri,
-        name: filename,
-        type: 'image/jpeg',
-      } as any);
+      images.forEach((img, i) => {
+        form.append('file', {
+          uri: img.uri,
+          name: `${itemIds[i]}.jpg`,
+          type: 'image/jpeg',
+        } as any);
+        setProgress({ current: i + 1, total: images.length });
+      });
 
-      // Same pattern as POST /posts — apiClient handles auth header via interceptor
-      const { data } = await apiClient.post('/wardrobe/items', form, {
+      await apiClient.post('/wardrobe/items/batch', form, {
         headers: { 'Content-Type': 'multipart/form-data' },
       });
 
-      // Navigate to detail page; ai_status will be "pending" — detail page polls for it
       qc.invalidateQueries({ queryKey: ['wardrobe-items'] });
-      setImageUri(null);
-      setName('');
-      setBrand('');
-      setCondition('');
-
-      const createdId = data?.item?.id ?? itemId;
-      router.replace(`/wardrobe/item-detail?id=${createdId}` as any);
+      router.replace('/wardrobe' as any);
 
     } catch (err: any) {
-      console.warn('[item-upload] error:', JSON.stringify(err.response?.data, null, 2));
-      Alert.alert('Upload Failed', err.response?.data?.error ?? err.message ?? 'There was an issue uploading your item.');
+      console.warn('[item-upload] batch error:', JSON.stringify(err.response?.data, null, 2));
+      Alert.alert(
+        'Upload Failed',
+        err.response?.data?.error ?? err.message ?? 'There was an issue uploading your items.',
+      );
     } finally {
-      setLoading(false);
+      setUploading(false);
     }
   };
 
+  const progressPct = progress.total > 0 ? progress.current / progress.total : 0;
 
   return (
     <View className="flex-1 bg-black">
@@ -109,128 +117,119 @@ export default function ItemUploadScreen() {
         <SafeAreaView className="flex-1">
           {/* Header */}
           <View className="flex-row justify-between items-center px-5 h-14 border-b border-white/10">
-            <TouchableOpacity onPress={() => router.back()} disabled={loading}>
+            <TouchableOpacity onPress={() => router.back()} disabled={uploading}>
               <Ionicons name="close" size={28} color="white" />
             </TouchableOpacity>
-            <Text className="text-white text-lg font-bold" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
+            <Text style={{ fontFamily: 'HelveticaNeue-Bold' }} className="text-white text-lg">
               Add to Wardrobe
             </Text>
             <View style={{ width: 28 }} />
           </View>
 
           <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
-            {/* Image Picker Area */}
-            <View className="aspect-[3/4] w-full bg-black/60 relative items-center justify-center">
-              {imageUri ? (
-                <>
-                  <Image source={{ uri: imageUri }} style={{ width: '100%', height: '100%' }} />
-                  {!loading && (
-                    <TouchableOpacity
-                      onPress={() => setImageUri(null)}
-                      className="absolute top-4 right-4 bg-black/50 p-2 rounded-full backdrop-blur-md"
-                    >
-                      <Ionicons name="trash-outline" size={20} color="white" />
-                    </TouchableOpacity>
-                  )}
-                </>
-              ) : (
-                <View className="items-center justify-center space-y-4">
-                  <Ionicons name="shirt-outline" size={64} color="rgba(255,255,255,0.2)" />
-                  <View className="flex-row space-x-4 mt-4">
-                    <TouchableOpacity
-                      onPress={() => pickImage(true)}
-                      className="bg-white/10 px-6 h-14 rounded-full border border-white/20 flex-row items-center"
-                    >
-                      <Ionicons name="camera-outline" size={20} color="white" style={{ marginRight: 8 }} />
-                      <Text className="text-white font-medium">Camera</Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => pickImage(false)}
-                      className="bg-white/10 px-6 h-14 rounded-full border border-white/20 flex-row items-center"
-                    >
-                      <Ionicons name="image-outline" size={20} color="white" style={{ marginRight: 8 }} />
-                      <Text className="text-white font-medium">Gallery</Text>
-                    </TouchableOpacity>
-                  </View>
+
+            {/* Empty state picker */}
+            {images.length === 0 && (
+              <View className="aspect-[3/4] w-full bg-black/60 items-center justify-center">
+                <Ionicons name="shirt-outline" size={64} color="rgba(255,255,255,0.2)" />
+                <Text style={{ fontFamily: 'HelveticaNeue' }} className="text-white/40 text-sm mt-3 mb-6">
+                  Select up to 20 items — AI classifies each one
+                </Text>
+                <View className="flex-row space-x-4">
+                  <TouchableOpacity
+                    onPress={pickFromCamera}
+                    className="bg-white/10 px-6 h-14 rounded-full border border-white/20 flex-row items-center"
+                  >
+                    <Ionicons name="camera-outline" size={20} color="white" style={{ marginRight: 8 }} />
+                    <Text style={{ fontFamily: 'HelveticaNeue-Medium' }} className="text-white">Camera</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    onPress={pickFromGallery}
+                    className="bg-white/10 px-6 h-14 rounded-full border border-white/20 flex-row items-center"
+                  >
+                    <Ionicons name="images-outline" size={20} color="white" style={{ marginRight: 8 }} />
+                    <Text style={{ fontFamily: 'HelveticaNeue-Medium' }} className="text-white">Gallery</Text>
+                  </TouchableOpacity>
                 </View>
-              )}
-            </View>
-
-            {/* Form Area */}
-            <View className="px-5 mt-6">
-              <View className="mb-4">
-                <Text className="text-white/60 text-xs uppercase tracking-widest mb-2" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }}>
-                  Item Name *
-                </Text>
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="e.g. Vintage Leather Jacket"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  className="bg-white/10 border border-white/20 rounded-xl px-4 h-14 text-white text-[16px]"
-                  style={{ paddingVertical: 0,  paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}
-                />
               </View>
+            )}
 
-              <View className="mb-4">
-                <Text className="text-white/60 text-xs uppercase tracking-widest mb-2" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }}>
-                  Brand (Optional)
-                </Text>
-                <TextInput
-                  value={brand}
-                  onChangeText={setBrand}
-                  placeholder="e.g. Zara"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  className="bg-white/10 border border-white/20 rounded-xl px-4 h-14 text-white text-[16px]"
-                  style={{ paddingVertical: 0,  paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}
-                />
-              </View>
+            {/* Thumbnail grid */}
+            {images.length > 0 && (
+              <View className="mt-5 px-5">
+                <View className="flex-row justify-between items-center mb-3">
+                  <Text style={{ fontFamily: 'HelveticaNeue-Bold' }} className="text-white text-base">
+                    {images.length} item{images.length !== 1 ? 's' : ''} selected
+                  </Text>
+                  {!uploading && images.length < 20 && (
+                    <View className="flex-row gap-2">
+                      <TouchableOpacity onPress={pickFromCamera} className="bg-white/10 px-3 h-9 rounded-full border border-white/20 flex-row items-center">
+                        <Ionicons name="camera-outline" size={16} color="white" style={{ marginRight: 4 }} />
+                        <Text style={{ fontFamily: 'HelveticaNeue-Medium' }} className="text-white text-sm">Camera</Text>
+                      </TouchableOpacity>
+                      <TouchableOpacity onPress={pickFromGallery} className="bg-white/10 px-3 h-9 rounded-full border border-white/20 flex-row items-center">
+                        <Ionicons name="add" size={16} color="white" style={{ marginRight: 4 }} />
+                        <Text style={{ fontFamily: 'HelveticaNeue-Medium' }} className="text-white text-sm">Add more</Text>
+                      </TouchableOpacity>
+                    </View>
+                  )}
+                </View>
 
-              <View className="mb-6">
-                <Text className="text-white/60 text-xs uppercase tracking-widest mb-2" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }}>
-                  Condition (Optional)
-                </Text>
-                <View className="flex-row flex-wrap">
-                  {CONDITIONS.map(c => (
-                    <TouchableOpacity
-                      key={c.value}
-                      onPress={() => setCondition(c.value)}
-                      className="mr-2 mb-2 px-4 h-11 rounded-full border"
-                      style={{
-                        backgroundColor: condition === c.value ? '#FF6B35' : 'rgba(255,255,255,0.05)',
-                        borderColor: condition === c.value ? '#FF6B35' : 'rgba(255,255,255,0.15)',
-                        alignItems: 'center', justifyContent: 'center',
-                      }}
-                    >
-                      <Text className={condition === c.value ? 'text-white' : 'text-white/60'} style={{ fontFamily: 'HelveticaNeue-Medium' }}>
-                        {c.label}
-                      </Text>
-                    </TouchableOpacity>
+                <View className="flex-row flex-wrap" style={{ gap: 8 }}>
+                  {images.map((img, i) => (
+                    <View key={i} className="relative" style={{ width: '31%', aspectRatio: 3 / 4 }}>
+                      <Image
+                        source={{ uri: img.uri }}
+                        style={{ width: '100%', height: '100%', borderRadius: 12 }}
+                        resizeMode="cover"
+                      />
+                      {!uploading && (
+                        <TouchableOpacity
+                          onPress={() => removeImage(i)}
+                          className="absolute -top-1.5 -right-1.5 bg-red-500 rounded-full w-6 h-6 items-center justify-center"
+                        >
+                          <Ionicons name="close" size={12} color="white" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
                   ))}
                 </View>
               </View>
+            )}
 
-              {/* Submit Button */}
-              <TouchableOpacity
-                onPress={handleUpload}
-                disabled={loading || !imageUri || !name}
-                className="h-14 rounded-xl items-center justify-center flex-row shadow-lg shadow-orange-500/20"
-                style={{ backgroundColor: loading || !imageUri || !name ? 'rgba(255,107,53,0.5)' : '#FF6B35' }}
-              >
-                {loading ? (
-                  <>
-                    <ActivityIndicator color="white" style={{ marginRight: 10 }} />
-                    <Text className="text-white font-bold text-lg" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
-                      Uploading...
-                    </Text>
-                  </>
-                ) : (
-                  <Text className="text-white font-bold text-lg" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
-                    Upload & Analyse
+            {/* Upload progress */}
+            {uploading && (
+              <View className="items-center gap-3 py-8 px-5">
+                <Text style={{ fontFamily: 'HelveticaNeue-Bold' }} className="text-white text-xl">
+                  Uploading {progress.current} of {progress.total}
+                </Text>
+                <View className="w-full bg-white/10 rounded-full" style={{ height: 4 }}>
+                  <View
+                    className="bg-[#FF6B35] rounded-full"
+                    style={{ height: 4, width: `${progressPct * 100}%` }}
+                  />
+                </View>
+                <Text style={{ fontFamily: 'HelveticaNeue' }} className="text-white/40 text-sm">
+                  AI will classify each item automatically
+                </Text>
+              </View>
+            )}
+
+            {/* Submit */}
+            {images.length > 0 && !uploading && (
+              <View className="px-5 mt-6">
+                <TouchableOpacity
+                  onPress={handleUpload}
+                  className="h-14 rounded-xl items-center justify-center shadow-lg shadow-orange-500/20"
+                  style={{ backgroundColor: '#FF6B35' }}
+                >
+                  <Text style={{ fontFamily: 'HelveticaNeue-Bold' }} className="text-white font-bold text-lg">
+                    Upload {images.length > 1 ? `${images.length} Items` : 'Item'} & Analyse
                   </Text>
-                )}
-              </TouchableOpacity>
-            </View>
+                </TouchableOpacity>
+              </View>
+            )}
+
           </ScrollView>
         </SafeAreaView>
       </LinearGradient>

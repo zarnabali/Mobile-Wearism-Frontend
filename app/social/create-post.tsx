@@ -139,7 +139,9 @@ export default function CreatePostScreen() {
   };
 
   const handlePost = async () => {
-    if (!imageUri) return Alert.alert('Missing Image', 'Please attach an image.');
+    if (!imageUri && !caption.trim()) {
+      return Alert.alert('Empty Post', 'Add a photo or caption to post.');
+    }
     setLoading(true);
     try {
       const postId = uuidv4();

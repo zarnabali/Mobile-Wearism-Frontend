@@ -55,7 +55,6 @@ export default function ItemEditScreen() {
   });
 
   const handleSave = () => {
-    if (!form.name.trim()) return Alert.alert('Error', 'Name is required');
     mutation.mutate(form);
   };
 
@@ -98,28 +97,28 @@ export default function ItemEditScreen() {
               <Text className="text-white/40 text-xs mb-2 uppercase tracking-widest" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }}>
                 Item Name
               </Text>
-              <View className="bg-white/10 rounded-2xl px-4 h-14 mb-6 border border-white/10">
+              <View className="bg-white/10 rounded-2xl px-4 h-14 mb-6 border border-white/10 justify-center">
                 <TextInput
                   value={form.name}
                   onChangeText={(v) => setForm({ ...form, name: v })}
                   placeholder="e.g. Vintage Denim Jacket"
                   placeholderTextColor="rgba(255,255,255,0.3)"
                   className="text-white text-[16px]"
-                  style={{ paddingVertical: 0,  paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}
+                  style={{ fontFamily: 'HelveticaNeue' }}
                 />
               </View>
 
               <Text className="text-white/40 text-xs mb-2 uppercase tracking-widest" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }}>
                 Brand (Optional)
               </Text>
-              <View className="bg-white/10 rounded-2xl px-4 h-14 mb-6 border border-white/10">
+              <View className="bg-white/10 rounded-2xl px-4 h-14 mb-6 border border-white/10 justify-center">
                 <TextInput
                   value={form.brand}
                   onChangeText={(v) => setForm({ ...form, brand: v })}
                   placeholder="e.g. Levi's"
                   placeholderTextColor="rgba(255,255,255,0.3)"
                   className="text-white text-[16px]"
-                  style={{ paddingVertical: 0,  paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}
+                  style={{ fontFamily: 'HelveticaNeue' }}
                 />
               </View>
 

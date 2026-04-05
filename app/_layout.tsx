@@ -63,6 +63,7 @@ export default function RootLayout() {
 
   return (
     <ErrorBoundary>
+      {/* Profile: `app/profile/_layout.tsx` Stack registers `index`, `[id]` (public user), and `edit`. */}
       <QueryClientProvider client={queryClient}>
         <VendorProvider>
           <AuthGuard />

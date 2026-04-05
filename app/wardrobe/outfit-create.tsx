@@ -10,7 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { apiClient } from '../../src/lib/apiClient';
 
-const OCCASIONS = ['casual', 'work', 'night_out', 'sports', 'formal'];
+const OCCASIONS = ['casual', 'formal', 'business', 'party', 'athleisure', 'streetwear', 'smart_casual'];
 const SEASONS = ['spring', 'summer', 'autumn', 'winter', 'all_season'];
 
 export default function OutfitCreateScreen() {
@@ -48,7 +48,6 @@ export default function OutfitCreateScreen() {
     mutationFn: () => apiClient.post('/wardrobe/outfits', {
       name: name || undefined,
       occasion,
-      season,
       item_ids: Array.from(selectedIds),
       status: 'saved',
     }),

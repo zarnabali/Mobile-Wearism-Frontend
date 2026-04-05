@@ -1,23 +1,35 @@
-import React, { useState } from 'react';
-import { View, Text, ScrollView, ImageBackground, Image, TouchableOpacity, Alert, ActivityIndicator } from 'react-native';
+import React, { useState, useEffect } from 'react';
+import { View, Text, ScrollView, ImageBackground, Image, TouchableOpacity, Alert, ActivityIndicator, RefreshControl } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { router } from 'expo-router';
-import BottomNav from './components/BottomNav';
-import Settings from './settings';
-import { useVendor } from './contexts/VendorContext';
+import { router, useLocalSearchParams } from 'expo-router';
+import BottomNav from '../components/BottomNav';
+import Settings from '../settings';
+import { useVendor } from '../contexts/VendorContext';
 import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../src/lib/apiClient';
+import { apiClient } from '../../src/lib/apiClient';
 import * as ImagePicker from 'expo-image-picker';
-import { Skeleton } from '../src/components/Skeleton';
+import { Skeleton } from '../../src/components/Skeleton';
+import { useAuthStore } from '../../src/stores/authStore';
 
 const ProfileScreen = () => {
+  const params = useLocalSearchParams<{ id?: string }>();
+  const currentUserId = useAuthStore(s => s.user?.id);
+  const paramId = params.id != null ? String(Array.isArray(params.id) ? params.id[0] : params.id) : undefined;
+  const shouldRedirectToPublic = Boolean(paramId && currentUserId && paramId !== currentUserId);
+
+  useEffect(() => {
+    if (shouldRedirectToPublic && paramId) {
+      router.replace(`/profile/${paramId}` as any);
+    }
+  }, [shouldRedirectToPublic, paramId]);
+
   const [settingsVisible, setSettingsVisible] = useState(false);
   const queryClient = useQueryClient();
   const { vendorData } = useVendor();
 
-  const { data, isLoading } = useQuery({
+  const { data, isLoading, refetch, isRefetching } = useQuery({
     queryKey: ['my-profile'],
     queryFn: () => apiClient.get('/user/profile').then(r => r.data),
   });
@@ -62,6 +74,14 @@ const ProfileScreen = () => {
     setSettingsVisible(true);
   };
 
+  if (shouldRedirectToPublic) {
+    return (
+      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
+        <ActivityIndicator size="large" color="#FF6B35" />
+      </View>
+    );
+  }
+
   if (isLoading) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
@@ -73,11 +93,18 @@ const ProfileScreen = () => {
   return (
     <View className="flex-1 bg-black">
       <LinearGradient colors={['rgba(60, 0, 8, 0.45)', 'rgba(60, 0, 8, 0.30)', 'rgba(60, 0, 8, 0.55)']} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={false} bounces={false}>
+        <ScrollView
+          contentContainerStyle={{ paddingBottom: 140 }}
+          showsVerticalScrollIndicator={false}
+          bounces
+          refreshControl={
+            <RefreshControl refreshing={isRefetching} onRefresh={() => refetch()} tintColor="#FF6B35" colors={['#FF6B35']} />
+          }
+        >
           {/* Header Image */}
           <View className="h-[380px] w-full relative">
             <ImageBackground
-              source={require('../assets/pictures/wardrobe2.jpeg')}
+              source={require('../../assets/pictures/wardrobe2.jpeg')}
               style={{ width: '100%', height: '100%', justifyContent: 'flex-end' }}
               imageStyle={{ opacity: 0.95 }}
             >
@@ -177,15 +204,6 @@ const ProfileScreen = () => {
                       Posts
                     </Text>
                   </View>
-                </View>
-
-                <View className="flex-row mt-4 space-x-3">
-                  <TouchableOpacity className="flex-1 bg-[#FF6B35] py-3.5 rounded-xl shadow-lg shadow-orange-500/20 items-center justify-center">
-                    <Text className="text-white font-bold text-base" style={{ fontFamily: 'HelveticaNeue-Bold' }}>Follow</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity className="flex-1 bg-white/10 py-3.5 rounded-xl border border-white/10 items-center justify-center">
-                    <Text className="text-white font-bold text-base" style={{ fontFamily: 'HelveticaNeue-Bold' }}>Message</Text>
-                  </TouchableOpacity>
                 </View>
               </View>
             </ImageBackground>

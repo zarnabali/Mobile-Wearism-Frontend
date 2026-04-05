@@ -195,7 +195,7 @@ const HomeScreen = () => {
     initialPageParam: 1,
   });
 
-  const rawPosts: any[] = data?.pages.flatMap((p: any) => p.posts ?? []) ?? [];
+  const rawPosts: any[] = data?.pages.flatMap((p: any) => p.posts ?? p.data ?? []) ?? [];
 
   // Inject vendor ads every 7 posts
   const feedItems: any[] = [];
@@ -220,7 +220,7 @@ const HomeScreen = () => {
         feedType={feedType}
         currentUserId={currentUserId}
         onPress={() => router.push(`/social/post-detail?id=${post.id}` as any)}
-        onUserPress={() => router.push(`/profile?id=${author.id}` as any)}
+        onUserPress={() => router.push(`/profile/${author.id}` as any)}
       />
     );
   }, [feedType, currentUserId, router]);
