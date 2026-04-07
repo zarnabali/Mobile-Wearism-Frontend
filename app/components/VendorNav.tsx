@@ -8,10 +8,10 @@ import { useVendor } from '../contexts/VendorContext';
 type VendorTab = 'dashboard' | 'inventory' | 'ads' | 'analytics' | 'profile';
 
 const vendorTabs = [
-    { key: 'dashboard', icon: 'grid', label: 'Dashboard', href: '/screens/vendor/dashboard' },
-    { key: 'inventory', icon: 'cube', label: 'Inventory', href: '/screens/vendor/inventory' },
-    { key: 'ads', icon: 'megaphone', label: 'Ads', href: '/screens/vendor/ads' },
-    { key: 'analytics', icon: 'stats-chart', label: 'Analytics', href: '/screens/vendor/analytics' },
+    { key: 'dashboard', icon: 'grid', label: 'Dashboard', href: '/vendor/dashboard' },
+    { key: 'inventory', icon: 'cube', label: 'Inventory', href: '/vendor/inventory' },
+    { key: 'ads', icon: 'megaphone', label: 'Ads', href: '/vendor/ads' },
+    { key: 'analytics', icon: 'stats-chart', label: 'Analytics', href: '/vendor/analytics' },
     { key: 'profile', icon: 'person', label: 'Profile', href: '/profile' },
 ];
 

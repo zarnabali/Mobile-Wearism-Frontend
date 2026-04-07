@@ -12,6 +12,7 @@ import { apiClient } from '../../src/lib/apiClient';
 import BottomNav from '../components/BottomNav';
 import { Skeleton } from '../../src/components/Skeleton';
 import { EmptyState } from '../../src/components/EmptyState';
+import { useCartStore } from '../../src/stores/cartStore';
 
 const CATEGORIES = ['All', 'Tops', 'Bottoms', 'Outerwear', 'Footwear', 'Accessories'];
 const SORT_OPTIONS = [
@@ -127,13 +128,26 @@ function FilterSheet({
 }
 
 // ─── Product card ─────────────────────────────────────────────────────────────
-function ProductCard({ item, onPress }: { item: any; onPress: () => void }) {
+function ProductCard({
+  item,
+  onPress,
+  onVendorPress,
+}: {
+  item: any;
+  onPress: () => void;
+  onVendorPress: () => void;
+}) {
+  const vendorName =
+    item?.vendor_profiles?.shop_name ??
+    item?.vendor?.brand_name ??
+    item?.vendor?.shop_name ??
+    'Vendor';
   return (
     <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={{ flex: 1, margin: 6 }}>
       <View style={{ borderRadius: 20, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
         <View style={{ position: 'relative' }}>
           <Image
-            source={{ uri: item.images?.[0] ?? 'https://via.placeholder.com/300' }}
+            source={{ uri: item.primary_image_url ?? item.images?.[0] ?? 'https://via.placeholder.com/300' }}
             style={{ width: '100%', aspectRatio: 1 }}
             resizeMode="cover"
           />
@@ -146,9 +160,11 @@ function ProductCard({ item, onPress }: { item: any; onPress: () => void }) {
           )}
         </View>
         <View style={{ padding: 12 }}>
-          <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.4)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
-            {item.vendor?.brand_name ?? 'Vendor'}
-          </Text>
+          <TouchableOpacity onPress={onVendorPress} activeOpacity={0.8} style={{ alignSelf: 'flex-start' }}>
+            <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.45)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
+              {vendorName}
+            </Text>
+          </TouchableOpacity>
           <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff', fontSize: 13, marginBottom: 4 }} numberOfLines={1}>
             {item.name}
           </Text>
@@ -171,6 +187,7 @@ function ProductCard({ item, onPress }: { item: any; onPress: () => void }) {
 // ─── Main screen ──────────────────────────────────────────────────────────────
 export default function CatalogScreen() {
   const router = useRouter();
+  const cartCount = useCartStore((s) => s.count);
 
   const [searchQuery, setSearchQuery] = useState('');
   const [debouncedSearch, setDebouncedSearch] = useState('');
@@ -210,7 +227,7 @@ export default function CatalogScreen() {
     initialPageParam: 1,
   });
 
-  const products = data?.pages.flatMap((p: any) => p.products ?? []) ?? [];
+  const products = data?.pages.flatMap((p: any) => p.data ?? p.products ?? []) ?? [];
 
   const handleApplyFilters = useCallback(() => {
     setSort(pendingSort);
@@ -223,6 +240,10 @@ export default function CatalogScreen() {
     <ProductCard
       item={item}
       onPress={() => router.push(`/shop/product-detail?id=${item.id}` as any)}
+      onVendorPress={() => {
+        const vendorId = item?.vendor_id ?? item?.vendor_profiles?.id;
+        if (vendorId) router.push(`/shop/vendor?vendorId=${encodeURIComponent(vendorId)}` as any);
+      }}
     />
   ), [router]);
 
@@ -251,10 +272,33 @@ export default function CatalogScreen() {
                 <Ionicons name="options-outline" size={20} color={activeFilters ? '#FF6B35' : 'white'} />
               </TouchableOpacity>
               <TouchableOpacity
+                onPress={() => router.push('/orders/buyer' as any)}
+                style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 999, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Ionicons name="bag-outline" size={22} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity
                 onPress={() => router.push('/shop/cart' as any)}
                 style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 999, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
               >
                 <Ionicons name="cart-outline" size={22} color="white" />
+                {cartCount > 0 && (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: -2,
+                      right: -2,
+                      width: 12,
+                      height: 12,
+                      borderRadius: 999,
+                      backgroundColor: '#ef4444',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: 2,
+                      borderColor: '#000',
+                    }}
+                  />
+                )}
               </TouchableOpacity>
             </View>
           </View>
@@ -284,18 +328,23 @@ export default function CatalogScreen() {
             data={CATEGORIES}
             keyExtractor={x => x}
             showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20, gap: 8, paddingBottom: 12 }}
+            contentContainerStyle={{ paddingHorizontal: 20, gap: 8, paddingBottom: 10 }}
             renderItem={({ item }) => (
               <TouchableOpacity
                 onPress={() => setSelectedCategory(item)}
                 style={{
-                  paddingHorizontal: 18, paddingVertical: 9, borderRadius: 999, borderWidth: 1,
+                  height: 34,
+                  paddingHorizontal: 12,
+                  borderRadius: 999,
+                  borderWidth: 1,
                   backgroundColor: selectedCategory === item ? '#FF6B35' : 'rgba(255,255,255,0.07)',
                   borderColor: selectedCategory === item ? '#FF6B35' : 'rgba(255,255,255,0.14)',
                   alignItems: 'center', justifyContent: 'center',
+                  alignSelf: 'flex-start',
                 }}
+                activeOpacity={0.85}
               >
-                <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: selectedCategory === item ? '#fff' : 'rgba(255,255,255,0.6)', fontSize: 14 }}>
+                <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: selectedCategory === item ? '#fff' : 'rgba(255,255,255,0.6)', fontSize: 11 }}>
                   {item}
                 </Text>
               </TouchableOpacity>
@@ -345,7 +394,7 @@ export default function CatalogScreen() {
           )}
         </SafeAreaView>
 
-        <BottomNav active="search" />
+        <BottomNav active="shop" />
       </LinearGradient>
 
       <FilterSheet

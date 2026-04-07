@@ -25,21 +25,6 @@ function timeAgo(iso: string) {
   return `${Math.floor(h / 24)}d`;
 }
 
-// Group flat comment list into top-level + replies (max 1 level)
-function groupComments(flat: any[]) {
-  const byId: Record<string, any> = {};
-  flat.forEach(c => { byId[c.id] = { ...c, replies: [] }; });
-  const roots: any[] = [];
-  flat.forEach(c => {
-    if (c.parent_id && byId[c.parent_id]) {
-      byId[c.parent_id].replies.push(byId[c.id]);
-    } else {
-      roots.push(byId[c.id]);
-    }
-  });
-  return roots;
-}
-
 // ─── Single comment row ──────────────────────────────────────────────────────
 function CommentRow({
   comment, currentUserId, onReply, onDelete, isReply = false,
@@ -139,8 +124,7 @@ export default function PostDetailScreen() {
     enabled: !!id,
   });
 
-  const rawComments: any[] = commentsData?.comments ?? commentsData?.data ?? commentsData ?? [];
-  const commentTree = groupComments(rawComments);
+  const commentTree: any[] = commentsData?.comments ?? commentsData?.data ?? [];
 
   // ── Mutations ─────────────────────────────────────────────────────────────
   const postCommentMutation = useMutation({

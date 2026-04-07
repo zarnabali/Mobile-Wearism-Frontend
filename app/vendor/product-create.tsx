@@ -1,11 +1,11 @@
-import React, { useState } from 'react';
+import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, TextInput, ScrollView, TouchableOpacity, Alert,
   Image, ActivityIndicator, KeyboardAvoidingView, Platform,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
-import { useRouter } from 'expo-router';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
+import { useLocalSearchParams, useRouter } from 'expo-router';
+import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -20,6 +20,8 @@ const CONDITIONS = ['new', 'like_new', 'good', 'fair', 'poor'];
 export default function ProductCreateScreen() {
   const router = useRouter();
   const qc = useQueryClient();
+  const { id } = useLocalSearchParams<{ id?: string }>();
+  const isEdit = !!id;
 
   const [name, setName] = useState('');
   const [description, setDescription] = useState('');
@@ -30,12 +32,110 @@ export default function ProductCreateScreen() {
   const [tags, setTags] = useState('');
   const [images, setImages] = useState<Array<{ uri: string; name: string }>>([]);
   const [uploading, setUploading] = useState(false);
+  const [removedExistingImageIds, setRemovedExistingImageIds] = useState<Set<string>>(new Set());
+
+  const { data: existingRes, isLoading: loadingExisting } = useQuery({
+    queryKey: ['vendor-product', id],
+    queryFn: () => apiClient.get(`/vendors/me/products/${id}`).then(r => r.data),
+    enabled: !!id,
+  });
+
+  const existingProduct = existingRes?.product;
+  const existingImages: Array<{ id: string; image_url: string; is_primary?: boolean }> =
+    existingProduct?.product_images ?? [];
+  const visibleExistingImages = useMemo(
+    () => existingImages.filter((img) => !removedExistingImageIds.has(img.id)),
+    [existingImages, removedExistingImageIds],
+  );
+  const hasExistingPrimary =
+    !!existingProduct?.primary_image_url || existingImages.some((img) => img.is_primary);
+
+  const initialSnapshot = useMemo(() => {
+    if (!existingProduct) return null;
+    return {
+      name: existingProduct.name ?? '',
+      description: existingProduct.description ?? '',
+      category: existingProduct.category ?? '',
+      condition: existingProduct.condition ?? 'new',
+      price: existingProduct.price != null ? String(existingProduct.price) : '',
+      stock: existingProduct.stock_quantity != null ? String(existingProduct.stock_quantity) : '0',
+      tags: Array.isArray(existingProduct.tags) ? existingProduct.tags.join(', ') : '',
+    };
+  }, [existingProduct]);
+
+  useEffect(() => {
+    if (!isEdit || !initialSnapshot) return;
+    setName(initialSnapshot.name);
+    setDescription(initialSnapshot.description);
+    setCategory(initialSnapshot.category);
+    setCondition(initialSnapshot.condition);
+    setPrice(initialSnapshot.price);
+    setStock(initialSnapshot.stock);
+    setTags(initialSnapshot.tags);
+    // Note: keep `images` empty; existing images are already on product.
+    setRemovedExistingImageIds(new Set());
+  }, [isEdit, initialSnapshot]);
+
+  const deleteExistingImageMutation = useMutation({
+    mutationFn: async ({ productId, imageId }: { productId: string; imageId: string }) => {
+      await apiClient.delete(`/products/${productId}/images/${imageId}`);
+      return { productId, imageId };
+    },
+    onSuccess: ({ productId, imageId }) => {
+      setRemovedExistingImageIds((prev) => {
+        const next = new Set(prev);
+        next.add(imageId);
+        return next;
+      });
+      qc.invalidateQueries({ queryKey: ['vendor-product', productId] });
+      qc.invalidateQueries({ queryKey: ['vendor-products'] });
+    },
+    onError: (err: any) => {
+      Alert.alert('Error', err.response?.data?.error || 'Could not delete image.');
+    },
+  });
 
   const createMutation = useMutation({
     mutationFn: async (publish: boolean) => {
-      // Step 1: Create product (draft)
+      if (isEdit) {
+        if (!existingProduct) throw new Error('Product not loaded yet.');
+
+        const next = {
+          name: name.trim(),
+          description: description || undefined,
+          category,
+          condition,
+          price: parseFloat(price),
+          stock_quantity: parseInt(stock) || 0,
+          tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [],
+        };
+
+        const updates: any = {};
+        if (!initialSnapshot) throw new Error('Initial snapshot missing.');
+
+        if (next.name !== initialSnapshot.name) updates.name = next.name;
+        if ((next.description ?? '') !== (initialSnapshot.description ?? '')) updates.description = next.description;
+        if (next.category !== initialSnapshot.category) updates.category = next.category;
+        if (next.condition !== initialSnapshot.condition) updates.condition = next.condition;
+        if (String(next.price) !== String(parseFloat(initialSnapshot.price || '0'))) updates.price = next.price;
+        if (String(next.stock_quantity) !== String(parseInt(initialSnapshot.stock || '0'))) updates.stock_quantity = next.stock_quantity;
+        if (next.tags.join(',') !== (initialSnapshot.tags || '').split(',').map(t => t.trim()).filter(Boolean).join(',')) updates.tags = next.tags;
+
+        // If user tapped publish, force status active.
+        if (publish) updates.status = 'active';
+
+        if (Object.keys(updates).length) {
+          await apiClient.patch(`/products/${existingProduct.id}`, updates);
+        } else if (publish && existingProduct.status !== 'active') {
+          await apiClient.patch(`/products/${existingProduct.id}`, { status: 'active' });
+        }
+
+        return { product: { id: existingProduct.id }, publish };
+      }
+
+      // Create mode
       const res = await apiClient.post('/products', {
-        name,
+        name: name.trim(),
         description: description || undefined,
         category,
         condition,
@@ -43,6 +143,7 @@ export default function ProductCreateScreen() {
         stock_quantity: parseInt(stock) || 1,
         tags: tags ? tags.split(',').map(t => t.trim()).filter(Boolean) : [],
       });
+
       return { product: res.data.product, publish };
     },
     onSuccess: async ({ product, publish }) => {
@@ -58,7 +159,11 @@ export default function ProductCreateScreen() {
             name: images[i].name,
             type: 'image/jpeg',
           } as any);
-          form.append('is_primary', String(i === 0));
+          // Prevent overwriting primary image in edit mode unless the product has no images yet.
+          const shouldSetPrimary = !isEdit
+            ? i === 0
+            : (!hasExistingPrimary && existingImages.length === 0 && i === 0);
+          form.append('is_primary', String(shouldSetPrimary));
           
           await apiClient.post(`/products/${productId}/images`, form, {
             headers: { 'Content-Type': 'multipart/form-data' },
@@ -68,9 +173,8 @@ export default function ProductCreateScreen() {
       }
 
       // Step 3: Activate if publish
-      if (publish) {
-        await apiClient.patch(`/products/${productId}`, { status: 'active' });
-      }
+      // In edit mode, publish may already have been done via PATCH above.
+      if (!isEdit && publish) await apiClient.patch(`/products/${productId}/activate`);
 
       qc.invalidateQueries({ queryKey: ['vendor-products'] });
       Alert.alert('Success', `Product ${publish ? 'published' : 'saved as draft'}.`);
@@ -103,7 +207,7 @@ export default function ProductCreateScreen() {
     }
   };
 
-  const canSubmit = name.trim() && category && parseFloat(price) > 0 && !createMutation.isPending && !uploading;
+  const canSubmit = name.trim() && category && parseFloat(price) > 0 && !createMutation.isPending && !uploading && (!isEdit || !loadingExisting);
 
   return (
     <View className="flex-1 bg-black">
@@ -115,7 +219,7 @@ export default function ProductCreateScreen() {
               <Ionicons name="arrow-back" size={24} color="white" />
             </TouchableOpacity>
             <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }} className="text-white text-lg ml-4">
-              New Product
+              {isEdit ? 'Edit Product' : 'New Product'}
             </Text>
           </View>
 
@@ -126,6 +230,54 @@ export default function ProductCreateScreen() {
               <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }} className="text-white/50 text-xs mb-4 uppercase tracking-widest">
                 Product Photos (Up to 6)
               </Text>
+
+              {isEdit && existingImages.length > 0 && (
+                <View style={{ marginBottom: 12 }}>
+                  <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }} className="text-white/40 text-[10px] mb-3 uppercase tracking-widest">
+                    Currently Added
+                  </Text>
+                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
+                    {visibleExistingImages
+                      .slice()
+                      .sort((a, b) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0))
+                      .map((img) => (
+                        <View key={img.id} className="relative">
+                          <Image source={{ uri: img.image_url }} className="w-24 h-24 rounded-2xl bg-white/5 border border-white/10" />
+                          {img.is_primary && (
+                            <View style={{ position: 'absolute', top: 4, left: 4, backgroundColor: '#FF6B35', borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 }}>
+                              <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 9 }}>PRIMARY</Text>
+                            </View>
+                          )}
+                          <TouchableOpacity
+                            onPress={() => {
+                              if (!existingProduct?.id) return;
+                              Alert.alert(
+                                'Remove image?',
+                                'This will delete the image from the product.',
+                                [
+                                  { text: 'Cancel', style: 'cancel' },
+                                  {
+                                    text: 'Remove',
+                                    style: 'destructive',
+                                    onPress: () => deleteExistingImageMutation.mutate({ productId: existingProduct.id, imageId: img.id }),
+                                  },
+                                ],
+                              );
+                            }}
+                            disabled={deleteExistingImageMutation.isPending || uploading || createMutation.isPending}
+                            className="absolute -top-2 -right-2 bg-red-500 rounded-full w-6 h-6 items-center justify-center border-2 border-black"
+                          >
+                            <Ionicons name="close" size={14} color="white" />
+                          </TouchableOpacity>
+                        </View>
+                      ))}
+                  </ScrollView>
+                  <Text style={{ marginTop: 10, fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>
+                    Adding more photos will keep existing ones and append new uploads.
+                  </Text>
+                </View>
+              )}
+
               <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-8" contentContainerStyle={{ gap: 12 }}>
                 {images.map((img, i) => (
                   <View key={i} className="relative">
@@ -278,17 +430,52 @@ export default function ProductCreateScreen() {
 
           {/* Action Bar */}
           <View className="absolute bottom-0 left-0 right-0 p-5 bg-black/80 backdrop-blur-lg border-t border-white/10 flex-row gap-4">
+            {isEdit ? (
+              <TouchableOpacity
+                onPress={() => {
+                  if (!existingProduct?.id) return;
+                  Alert.alert(
+                    'Delete product?',
+                    'This will remove the product from your inventory. This action cannot be undone.',
+                    [
+                      { text: 'Cancel', style: 'cancel' },
+                      {
+                        text: 'Delete',
+                        style: 'destructive',
+                        onPress: async () => {
+                          try {
+                            await apiClient.delete(`/products/${existingProduct.id}`);
+                            qc.invalidateQueries({ queryKey: ['vendor-products'] });
+                            Alert.alert('Deleted', 'Product deleted.');
+                            router.back();
+                          } catch (err: any) {
+                            Alert.alert('Error', err.response?.data?.error || 'Could not delete product.');
+                          }
+                        },
+                      },
+                    ],
+                  );
+                }}
+                disabled={createMutation.isPending || uploading || loadingExisting}
+                className="flex-1 bg-red-500/15 h-14 rounded-full border border-red-500/30 items-center justify-center"
+              >
+                <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }} className="text-red-400 uppercase tracking-widest">
+                  Delete
+                </Text>
+              </TouchableOpacity>
+            ) : (
+              <TouchableOpacity
+                onPress={() => createMutation.mutate(false)}
+                disabled={!canSubmit}
+                className="flex-1 bg-white/5 h-14 rounded-full border border-white/10 items-center justify-center"
+              >
+                <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }} className="text-white/60 uppercase tracking-widest">
+                  Save Draft
+                </Text>
+              </TouchableOpacity>
+            )}
             <TouchableOpacity
-              onPress={() => createMutation.mutate(false)}
-              disabled={!canSubmit}
-              className="flex-1 bg-white/5 h-14 rounded-full border border-white/10 items-center justify-center"
-            >
-              <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }} className="text-white/60 uppercase tracking-widest">
-                Save Draft
-              </Text>
-            </TouchableOpacity>
-            <TouchableOpacity
-              onPress={() => createMutation.mutate(true)}
+              onPress={() => createMutation.mutate(isEdit ? false : true)}
               disabled={!canSubmit}
               className="flex-1 bg-[#FF6B35] h-14 rounded-full items-center justify-center shadow-lg shadow-orange-500/20"
             >
@@ -296,7 +483,7 @@ export default function ProductCreateScreen() {
                 <ActivityIndicator color="white" />
               ) : (
                 <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }} className="text-white uppercase tracking-widest">
-                  Publish Now
+                  {isEdit ? 'Update' : 'Publish Now'}
                 </Text>
               )}
             </TouchableOpacity>

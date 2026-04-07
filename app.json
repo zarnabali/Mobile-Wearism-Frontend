@@ -3,6 +3,7 @@
     "name": "Wearism",
     "slug": "wearism",
     "version": "1.0.0",
+    "userInterfaceStyle": "automatic",
     "orientation": "portrait",
     "icon": "./assets/icon.png",
     "newArchEnabled": true,

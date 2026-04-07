@@ -32,11 +32,21 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
         router.push('/vendor-registration');
     };
 
+    const handleVendorDashboard = () => {
+        onClose();
+        setVendorMode(true);
+        router.push('/vendor/dashboard' as any);
+    };
+
     const handleOptionPress = async (id: string) => {
         switch (id) {
             case 'edit':
                 onClose();
                 router.push('/profile/edit');
+                break;
+            case 'orders':
+                onClose();
+                router.push('/orders/buyer' as any);
                 break;
             case 'privacy':
                 WebBrowser.openBrowserAsync('https://wearism.ai/privacy');
@@ -252,55 +262,107 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                                                 <Ionicons name="arrow-forward" size={20} color="#FF6B35" />
                                             </TouchableOpacity>
                                         ) : (
-                                            <TouchableOpacity
-                                                onPress={handleSwitchMode}
-                                                style={{
-                                                    flexDirection: 'row',
-                                                    alignItems: 'center',
-                                                    backgroundColor: 'rgba(255, 107, 53, 0.15)',
-                                                    borderWidth: 1,
-                                                    borderColor: '#FF6B35',
-                                                    borderRadius: 16,
-                                                    padding: 16,
-                                                }}
-                                                activeOpacity={0.7}
-                                            >
-                                                <View
+                                            <View style={{ gap: 12 }}>
+                                                <TouchableOpacity
+                                                    onPress={handleVendorDashboard}
                                                     style={{
-                                                        width: 40,
-                                                        height: 40,
-                                                        borderRadius: 12,
-                                                        backgroundColor: '#FF6B35',
-                                                        justifyContent: 'center',
+                                                        flexDirection: 'row',
                                                         alignItems: 'center',
-                                                        marginRight: 16,
+                                                        backgroundColor: 'rgba(255, 107, 53, 0.15)',
+                                                        borderWidth: 1,
+                                                        borderColor: '#FF6B35',
+                                                        borderRadius: 16,
+                                                        padding: 16,
                                                     }}
+                                                    activeOpacity={0.7}
                                                 >
-                                                    <Ionicons name="swap-horizontal" size={22} color="#fff" />
-                                                </View>
-                                                <View style={{ flex: 1 }}>
-                                                    <Text
+                                                    <View
                                                         style={{
-                                                            fontSize: 16,
-                                                            fontFamily: 'HelveticaNeue-Bold',
-                                                            color: '#FF6B35',
+                                                            width: 40,
+                                                            height: 40,
+                                                            borderRadius: 12,
+                                                            backgroundColor: '#FF6B35',
+                                                            justifyContent: 'center',
+                                                            alignItems: 'center',
+                                                            marginRight: 16,
                                                         }}
                                                     >
-                                                        {isVendorMode ? 'Switch to User Mode' : 'Switch to Vendor Mode'}
-                                                    </Text>
-                                                    <Text
+                                                        <Ionicons name="storefront" size={22} color="#fff" />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text
+                                                            style={{
+                                                                fontSize: 16,
+                                                                fontFamily: 'HelveticaNeue-Bold',
+                                                                color: '#FF6B35',
+                                                            }}
+                                                        >
+                                                            Vendor Dashboard
+                                                        </Text>
+                                                        <Text
+                                                            style={{
+                                                                fontSize: 13,
+                                                                fontFamily: 'HelveticaNeue',
+                                                                color: 'rgba(255,255,255,0.6)',
+                                                                marginTop: 2,
+                                                            }}
+                                                        >
+                                                            Manage your store
+                                                        </Text>
+                                                    </View>
+                                                    <Ionicons name="arrow-forward" size={20} color="#FF6B35" />
+                                                </TouchableOpacity>
+
+                                                <TouchableOpacity
+                                                    onPress={handleSwitchMode}
+                                                    style={{
+                                                        flexDirection: 'row',
+                                                        alignItems: 'center',
+                                                        backgroundColor: 'rgba(255,255,255,0.06)',
+                                                        borderWidth: 1,
+                                                        borderColor: 'rgba(255,255,255,0.12)',
+                                                        borderRadius: 16,
+                                                        padding: 16,
+                                                    }}
+                                                    activeOpacity={0.7}
+                                                >
+                                                    <View
                                                         style={{
-                                                            fontSize: 13,
-                                                            fontFamily: 'HelveticaNeue',
-                                                            color: 'rgba(255,255,255,0.6)',
-                                                            marginTop: 2,
+                                                            width: 40,
+                                                            height: 40,
+                                                            borderRadius: 12,
+                                                            backgroundColor: 'rgba(255,255,255,0.08)',
+                                                            justifyContent: 'center',
+                                                            alignItems: 'center',
+                                                            marginRight: 16,
                                                         }}
                                                     >
-                                                        {isVendorMode ? 'Browse as user' : 'Manage your store'}
-                                                    </Text>
-                                                </View>
-                                                <Ionicons name="arrow-forward" size={20} color="#FF6B35" />
-                                            </TouchableOpacity>
+                                                        <Ionicons name="swap-horizontal" size={22} color="rgba(255,255,255,0.85)" />
+                                                    </View>
+                                                    <View style={{ flex: 1 }}>
+                                                        <Text
+                                                            style={{
+                                                                fontSize: 16,
+                                                                fontFamily: 'HelveticaNeue-Bold',
+                                                                color: 'rgba(255,255,255,0.85)',
+                                                            }}
+                                                        >
+                                                            {isVendorMode ? 'Switch to User Mode' : 'Switch to Vendor Mode'}
+                                                        </Text>
+                                                        <Text
+                                                            style={{
+                                                                fontSize: 13,
+                                                                fontFamily: 'HelveticaNeue',
+                                                                color: 'rgba(255,255,255,0.55)',
+                                                                marginTop: 2,
+                                                            }}
+                                                        >
+                                                            {isVendorMode ? 'Browse as a customer' : 'Sell & manage orders'}
+                                                        </Text>
+                                                    </View>
+                                                    <Ionicons name="arrow-forward" size={20} color="rgba(255,255,255,0.6)" />
+                                                </TouchableOpacity>
+                                            </View>
                                         )}
                                     </View>
 

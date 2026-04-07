@@ -23,7 +23,10 @@ export default function FollowsScreen() {
     enabled: !!userId,
   });
 
-  const list = data?.users ?? data?.data ?? data ?? [];
+  const raw = data?.users ?? data?.data ?? data ?? [];
+  const list = (Array.isArray(raw) ? raw : [])
+    .map((row: any) => row?.profiles)
+    .filter(Boolean);
 
   const renderItem = ({ item }: { item: any }) => (
     <View className="flex-row items-center justify-between px-5 h-14 border-b border-white/5">

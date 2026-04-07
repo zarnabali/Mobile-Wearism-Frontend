@@ -1,13 +1,33 @@
-import React from 'react';
-import { View, Text, TouchableOpacity } from 'react-native';
+import React, { useEffect } from 'react';
+import { View, Text, TouchableOpacity, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useRouter, useLocalSearchParams } from 'expo-router';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../src/lib/apiClient';
+import { useVendor } from './contexts/VendorContext';
 
 export default function VendorPendingScreen() {
   const router = useRouter();
   const { shopName } = useLocalSearchParams<{ shopName?: string }>();
+  const { setVendorMode } = useVendor();
+
+  const { data, isLoading } = useQuery({
+    queryKey: ['vendor-me', 'pending'],
+    queryFn: () => apiClient.get('/vendors/me').then(r => r.data),
+    refetchInterval: 2000,
+    retry: false,
+  });
+
+  const status: string | undefined = data?.vendor?.status;
+
+  useEffect(() => {
+    if (status === 'approved') {
+      setVendorMode(true);
+      router.replace('/vendor/dashboard' as any);
+    }
+  }, [router, setVendorMode, status]);
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
@@ -28,11 +48,11 @@ export default function VendorPendingScreen() {
             </View>
 
             <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 28, textAlign: 'center', marginBottom: 12 }}>
-              Application Under Review
+              Setting up your shop…
             </Text>
 
             <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.55)', fontSize: 15, textAlign: 'center', lineHeight: 23, marginBottom: 36 }}>
-              Thanks for applying to become a Wearism Vendor! Our team is reviewing your details and will notify you once your shop is approved.
+              Your vendor account is being activated. This usually takes a moment.
             </Text>
 
             {/* Status card */}
@@ -57,17 +77,23 @@ export default function VendorPendingScreen() {
                 borderRadius: 999, paddingHorizontal: 14, paddingVertical: 6,
               }}>
                 <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#FF6B35', fontSize: 11, textTransform: 'uppercase', letterSpacing: 0.8 }}>
-                  Pending
+                  {status || 'pending'}
                 </Text>
               </View>
+            </View>
+
+            <View style={{ marginTop: 18, alignItems: 'center' }}>
+              {(isLoading || status !== 'approved') ? (
+                <ActivityIndicator color="#FF6B35" />
+              ) : null}
             </View>
 
             {/* Steps */}
             <View style={{ width: '100%', marginTop: 28, gap: 10 }}>
               {[
-                { icon: 'checkmark-circle', color: '#4CAF50', label: 'Application submitted' },
-                { icon: 'ellipse-outline', color: '#FF9800', label: 'Under review by our team' },
-                { icon: 'ellipse-outline', color: 'rgba(255,255,255,0.25)', label: 'Approval & shop activation' },
+                { icon: 'checkmark-circle', color: '#4CAF50', label: 'Registration submitted' },
+                { icon: 'ellipse-outline', color: '#FF9800', label: 'Activating vendor account' },
+                { icon: status === 'approved' ? 'checkmark-circle' : 'ellipse-outline', color: status === 'approved' ? '#4CAF50' : 'rgba(255,255,255,0.25)', label: 'Vendor dashboard ready' },
               ].map((step, i) => (
                 <View key={i} style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
                   <Ionicons name={step.icon as any} size={20} color={step.color} />

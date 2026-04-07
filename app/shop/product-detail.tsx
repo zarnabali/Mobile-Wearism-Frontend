@@ -18,6 +18,7 @@ export default function ProductDetailScreen() {
   const qc = useQueryClient();
   const { id } = useLocalSearchParams<{ id: string }>();
   const incrementCart = useCartStore((s) => s.increment);
+  const cartCount = useCartStore((s) => s.count);
 
   const [activeImageIndex, setActiveImageIndex] = useState(0);
 
@@ -29,11 +30,12 @@ export default function ProductDetailScreen() {
   });
 
   const product = productData?.product ?? productData?.data ?? productData;
+  const vendorProfile = product?.vendor_profiles ?? product?.vendor ?? null;
 
   // ─── Add to Cart Mutation ─────────────────────────────────────────────────
   const addToCartMutation = useMutation({
     mutationFn: () => apiClient.post('/cart/items', {
-      product_id: parseInt(id as string, 10),
+      product_id: id as string,
       quantity: 1
     }),
     onSuccess: () => {
@@ -67,7 +69,15 @@ export default function ProductDetailScreen() {
     );
   }
 
-  const images = product.images?.length > 0 ? product.images : ['https://via.placeholder.com/600'];
+  const images =
+    (Array.isArray(product?.product_images) && product.product_images.length > 0
+      ? product.product_images
+          .slice()
+          .sort((a: any, b: any) => (a.sort_order ?? 0) - (b.sort_order ?? 0))
+          .map((pi: any) => pi.image_url)
+      : (product?.primary_image_url ? [product.primary_image_url] : [])) || [];
+
+  const safeImages = images.length > 0 ? images : ['https://via.placeholder.com/600'];
   const isOutOfStock = product.stock_quantity === 0;
 
   return (
@@ -80,9 +90,31 @@ export default function ProductDetailScreen() {
             <TouchableOpacity onPress={() => router.back()} className="w-10 h-10 bg-black/40 rounded-full items-center justify-center backdrop-blur-md">
               <Ionicons name="arrow-back" size={24} color="white" />
             </TouchableOpacity>
-            <TouchableOpacity onPress={() => router.push('/shop/cart')} className="w-10 h-10 bg-black/40 rounded-full items-center justify-center backdrop-blur-md">
-              <Ionicons name="cart-outline" size={24} color="white" />
-            </TouchableOpacity>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+              <TouchableOpacity onPress={() => router.push('/orders/buyer' as any)} className="w-10 h-10 bg-black/40 rounded-full items-center justify-center backdrop-blur-md">
+                <Ionicons name="bag-outline" size={24} color="white" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={() => router.push('/shop/cart')} className="w-10 h-10 bg-black/40 rounded-full items-center justify-center backdrop-blur-md">
+                <Ionicons name="cart-outline" size={24} color="white" />
+                {cartCount > 0 && (
+                  <View
+                    style={{
+                      position: 'absolute',
+                      top: -2,
+                      right: -2,
+                      width: 12,
+                      height: 12,
+                      borderRadius: 999,
+                      backgroundColor: '#ef4444',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      borderWidth: 2,
+                      borderColor: '#000',
+                    }}
+                  />
+                )}
+              </TouchableOpacity>
+            </View>
           </View>
         </SafeAreaView>
 
@@ -98,20 +130,41 @@ export default function ProductDetailScreen() {
                 setActiveImageIndex(Math.round(e.nativeEvent.contentOffset.x / width));
               }}
             >
-              {images.map((img: string, i: number) => (
+              {safeImages.map((img: string, i: number) => (
                 <Image key={i} source={{ uri: img }} style={{ width, height: width * 1.2 }} className="bg-zinc-900" />
               ))}
             </ScrollView>
             
             {/* Dots */}
-            {images.length > 1 && (
+            {safeImages.length > 1 && (
               <View className="absolute bottom-4 w-full flex-row justify-center gap-2">
-                {images.map((_: any, i: number) => (
+                {safeImages.map((_: any, i: number) => (
                   <View
                     key={i}
                     className={`w-2 h-2 rounded-full ${i === activeImageIndex ? 'bg-[#FF6B35]' : 'bg-white/40'}`}
                   />
                 ))}
+              </View>
+            )}
+
+            {/* 1/3 indicator */}
+            {safeImages.length > 1 && (
+              <View
+                style={{
+                  position: 'absolute',
+                  bottom: 14,
+                  right: 14,
+                  paddingHorizontal: 10,
+                  paddingVertical: 6,
+                  borderRadius: 999,
+                  backgroundColor: 'rgba(0,0,0,0.45)',
+                  borderWidth: 1,
+                  borderColor: 'rgba(255,255,255,0.12)',
+                }}
+              >
+                <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 12 }}>
+                  {Math.min(activeImageIndex + 1, safeImages.length)}/{safeImages.length}
+                </Text>
               </View>
             )}
           </View>
@@ -130,19 +183,22 @@ export default function ProductDetailScreen() {
             {/* Vendor Row */}
             <TouchableOpacity
               activeOpacity={0.7}
-              onPress={() => router.push(`/profile/${product.vendor?.user_id}` as any)}
+              onPress={() => {
+                const vendorId = vendorProfile?.id ?? product?.vendor_id;
+                if (vendorId) router.push(`/shop/vendor?vendorId=${encodeURIComponent(vendorId)}` as any);
+              }}
               className="flex-row items-center border-b border-white/10 mb-4 py-3"
             >
               <View className="w-10 h-10 rounded-full bg-white/10 items-center justify-center mr-3 overflow-hidden">
-                {product.vendor?.logo_url ? (
-                  <Image source={{ uri: product.vendor.logo_url }} style={{ width: 40, height: 40 }} />
+                {vendorProfile?.shop_logo_url ? (
+                  <Image source={{ uri: vendorProfile.shop_logo_url }} style={{ width: 40, height: 40 }} />
                 ) : (
                   <Ionicons name="storefront" size={20} color="rgba(255,255,255,0.6)" />
                 )}
               </View>
               <View className="flex-1">
                 <Text className="text-white text-sm" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }}>
-                  {product.vendor?.brand_name || 'Vendor'}
+                  {vendorProfile?.shop_name || vendorProfile?.brand_name || 'Vendor'}
                 </Text>
                 <Text className="text-[#FF6B35] text-xs pt-0.5 font-bold uppercase tracking-wider" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
                    View Shop

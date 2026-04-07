@@ -140,22 +140,30 @@ export default function PublicProfileScreen() {
                 </View>
 
                 <View className="flex-row mt-6 justify-between bg-white/10 rounded-2xl p-4 border border-white/10 backdrop-blur-sm">
-                  <View className="items-center flex-1 border-r border-white/10">
+                  <TouchableOpacity
+                    className="items-center flex-1 border-r border-white/10"
+                    activeOpacity={0.8}
+                    onPress={() => router.push(`/social/follows?userId=${encodeURIComponent(id)}&type=followers` as any)}
+                  >
                     <Text className="text-white text-xl font-bold" style={{ fontFamily: 'HelveticaNeue-Bold' }}>
                       {profile?.followers_count ?? 0}
                     </Text>
                     <Text className="text-white/60 text-xs uppercase tracking-wider mt-1" style={{ fontFamily: 'HelveticaNeue-Medium' }}>
                       Followers
                     </Text>
-                  </View>
-                  <View className="items-center flex-1 border-r border-white/10">
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    className="items-center flex-1 border-r border-white/10"
+                    activeOpacity={0.8}
+                    onPress={() => router.push(`/social/follows?userId=${encodeURIComponent(id)}&type=following` as any)}
+                  >
                     <Text className="text-white text-xl font-bold" style={{ fontFamily: 'HelveticaNeue-Bold' }}>
                       {profile?.following_count ?? 0}
                     </Text>
                     <Text className="text-white/60 text-xs uppercase tracking-wider mt-1" style={{ fontFamily: 'HelveticaNeue-Medium' }}>
                       Following
                     </Text>
-                  </View>
+                  </TouchableOpacity>
                   <View className="items-center flex-1">
                     <Text className="text-white text-xl font-bold" style={{ fontFamily: 'HelveticaNeue-Bold' }}>
                       {profile?.posts_count ?? 0}

@@ -89,7 +89,7 @@ export default function VendorDashboard() {
             </Text>
             <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6 }}>
               <Text style={{ fontSize: 30, fontFamily: 'HelveticaNeue-Thin', color: '#fff', flex: 1 }}>
-                {summary.brand_name ?? 'Your Shop'}
+                {summary.shop_name ?? 'Your Shop'}
               </Text>
               <View style={{ width: 50, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,107,53,0.15)', borderWidth: 1.5, borderColor: '#FF6B35', justifyContent: 'center', alignItems: 'center' }}>
                 <Ionicons name="storefront" size={24} color="#FF6B35" />

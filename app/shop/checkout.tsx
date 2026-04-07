@@ -3,7 +3,7 @@ import {
   View, Text, ScrollView, TextInput, TouchableOpacity,
   KeyboardAvoidingView, Platform, ActivityIndicator, Alert
 } from 'react-native';
-import { SafeAreaView } from 'react-native-safe-area-context';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
@@ -12,6 +12,7 @@ import { apiClient } from '../../src/lib/apiClient';
 import { useCartStore } from '../../src/stores/cartStore';
 
 export default function CheckoutScreen() {
+  const insets = useSafeAreaInsets();
   const router = useRouter();
   const qc = useQueryClient();
   const setCount = useCartStore((s) => s.setCount);
@@ -27,12 +28,20 @@ export default function CheckoutScreen() {
     queryFn: () => apiClient.get('/cart').then(r => r.data),
   });
 
-  const cart = cartData?.cart || { items: [] };
-  // Only checkout available items
-  const items = (cart.items || []).filter((i: any) => i.is_available);
-  
-  const subtotal = items.reduce((acc: number, i: any) => acc + (i.product?.price * i.quantity), 0);
-  const vendorIds = new Set(items.map((i: any) => i.product?.vendor_id));
+  // Backend returns: { success: true, items, subtotal, item_count, unavailable_count }
+  // Normalize to the UI shape used by this screen.
+  const items = (cartData?.items ?? []).map((i: any) => ({
+    ...i,
+    product: i.products,
+    is_available: true,
+  }));
+
+  const subtotal =
+    typeof cartData?.subtotal === 'number'
+      ? cartData.subtotal
+      : items.reduce((acc: number, i: any) => acc + ((i.product?.price || 0) * i.quantity), 0);
+
+  const vendorIds = new Set(items.map((i: any) => i.product?.vendor_profiles?.id).filter(Boolean));
   const isMultiVendor = vendorIds.size > 1;
 
   // ─── Mutations ──────────────────────────────────────────────────────────
@@ -85,7 +94,7 @@ export default function CheckoutScreen() {
   return (
     <View className="flex-1 bg-black">
       <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
-        <SafeAreaView className="flex-1" edges={['top']}>
+        <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           {/* Header */}
           <View className="px-5 py-4 border-b border-white/10 flex-row items-center z-10">
             <TouchableOpacity onPress={() => router.back()} className="mr-4">
@@ -96,8 +105,15 @@ export default function CheckoutScreen() {
             </Text>
           </View>
 
-          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined}>
-            <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 100 }} showsVerticalScrollIndicator={false}>
+          <KeyboardAvoidingView
+            style={{ flex: 1 }}
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+          >
+            <ScrollView
+              contentContainerStyle={{ padding: 20, paddingBottom: 120 }}
+              showsVerticalScrollIndicator={false}
+              keyboardShouldPersistTaps="handled"
+            >
               
               {/* Multi-vendor notice */}
               {isMultiVendor && (
@@ -203,30 +219,38 @@ export default function CheckoutScreen() {
               </View>
 
             </ScrollView>
-
-            {/* Sticky Submit Button */}
-            <SafeAreaView edges={['bottom']} className="absolute bottom-0 w-full bg-black/95 pt-4 px-5 border-t border-white/10 backdrop-blur-xl">
-              <TouchableOpacity
-                onPress={() => checkoutMutation.mutate()}
-                disabled={!canProceed || checkoutMutation.isPending}
-                className={`w-full h-14 rounded-xl items-center mb-2 flex-row justify-center ${
-                  canProceed ? 'bg-[#FF6B35] shadow-lg shadow-orange-500/20' : 'bg-white/10'
-                }`}
-                activeOpacity={0.8}
-              >
-                {checkoutMutation.isPending ? (
-                  <ActivityIndicator color="white" style={{ marginRight: 8 }} />
-                ) : null}
-                <Text
-                  className="font-bold text-lg"
-                  style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold', color: canProceed ? '#fff' : 'rgba(255,255,255,0.4)' }}
-                >
-                  Place Order
-                </Text>
-              </TouchableOpacity>
-            </SafeAreaView>
-
           </KeyboardAvoidingView>
+
+          {/* Sticky Submit Button (outside KeyboardAvoidingView) */}
+          <View
+            style={{
+              backgroundColor: 'rgba(0,0,0,0.95)',
+              paddingTop: 16,
+              paddingHorizontal: 20,
+              paddingBottom: insets.bottom || 16,
+              borderTopWidth: 1,
+              borderTopColor: 'rgba(255,255,255,0.10)',
+            }}
+          >
+            <TouchableOpacity
+              onPress={() => checkoutMutation.mutate()}
+              disabled={!canProceed || checkoutMutation.isPending}
+              className={`w-full h-14 rounded-xl items-center mb-2 flex-row justify-center ${
+                canProceed ? 'bg-[#FF6B35] shadow-lg shadow-orange-500/20' : 'bg-white/10'
+              }`}
+              activeOpacity={0.8}
+            >
+              {checkoutMutation.isPending ? (
+                <ActivityIndicator color="white" style={{ marginRight: 8 }} />
+              ) : null}
+              <Text
+                className="font-bold text-lg"
+                style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold', color: canProceed ? '#fff' : 'rgba(255,255,255,0.4)' }}
+              >
+                Place Order
+              </Text>
+            </TouchableOpacity>
+          </View>
         </SafeAreaView>
       </LinearGradient>
     </View>

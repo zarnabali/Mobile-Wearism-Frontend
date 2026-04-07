@@ -17,49 +17,71 @@ export default function CartScreen() {
   const router = useRouter();
   const qc = useQueryClient();
   const setCount = useCartStore((s) => s.setCount);
+  const [updatingId, setUpdatingId] = React.useState<string | null>(null);
+  const [deletingId, setDeletingId] = React.useState<string | null>(null);
 
   // ─── Fetch Cart ─────────────────────────────────────────────────────────
-  const { data: cartData, isLoading } = useQuery({
+  const { data: cartData, isLoading, isFetching } = useQuery({
     queryKey: ['cart'],
     queryFn: () => apiClient.get('/cart').then(r => r.data),
   });
 
-  const cart = cartData?.cart || { items: [] };
-  const items = cart.items || [];
+  // Backend returns: { success: true, items, subtotal, item_count, unavailable_count }
+  // Normalize to the UI shape used by this screen.
+  const items = (cartData?.items ?? []).map((i: any) => ({
+    ...i,
+    product: i.products,
+    is_available: true,
+  }));
 
   // Sync global counter
   React.useEffect(() => {
     if (cartData) {
-      const activeCount = items.filter((i: any) => i.is_available).reduce((acc: number, i: any) => acc + i.quantity, 0);
+      const activeCount = items.reduce((acc: number, i: any) => acc + (i.quantity || 0), 0);
       setCount(activeCount);
     }
   }, [cartData, items, setCount]);
 
-  const unavailableCount = items.filter((i: any) => !i.is_available).length;
-  const activeItems = items.filter((i: any) => i.is_available);
-  const subtotal = activeItems.reduce((acc: number, i: any) => acc + (i.product?.price * i.quantity), 0);
+  const unavailableCount = cartData?.unavailable_count ?? 0;
+  const activeItems = items;
+  const subtotal =
+    typeof cartData?.subtotal === 'number'
+      ? cartData.subtotal
+      : activeItems.reduce((acc: number, i: any) => acc + ((i.product?.price || 0) * i.quantity), 0);
 
   // ─── Mutations ──────────────────────────────────────────────────────────
   const updateQtyMutation = useMutation({
     mutationFn: ({ id, qty }: { id: string, qty: number }) => apiClient.patch(`/cart/items/${id}`, { quantity: qty }),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['cart'] }),
+    onSettled: () => setUpdatingId(null),
   });
 
   const deleteItemMutation = useMutation({
     mutationFn: (id: string) => apiClient.delete(`/cart/items/${id}`),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['cart'] }),
+    onSettled: () => setDeletingId(null),
   });
 
   const handleUpdate = (id: string, current: number, delta: number) => {
     const next = current + delta;
     if (next < 1) handleDelete(id);
-    else updateQtyMutation.mutate({ id, qty: next });
+    else {
+      setUpdatingId(id);
+      updateQtyMutation.mutate({ id, qty: next });
+    }
   };
 
   const handleDelete = (id: string) => {
     Alert.alert('Remove Item', 'Are you sure?', [
       { text: 'Cancel', style: 'cancel' },
-      { text: 'Remove', style: 'destructive', onPress: () => deleteItemMutation.mutate(id) }
+      {
+        text: 'Remove',
+        style: 'destructive',
+        onPress: () => {
+          setDeletingId(id);
+          deleteItemMutation.mutate(id);
+        },
+      }
     ]);
   };
 
@@ -67,13 +89,13 @@ export default function CartScreen() {
   const renderItem = ({ item }: { item: any }) => (
       <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: item.is_available ? 'rgba(255,255,255,0.05)' : 'rgba(255,50,50,0.05)', borderRadius: 20, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: item.is_available ? 'rgba(255,255,255,0.1)' : 'rgba(255,100,100,0.3)' }}>
       <Image
-        source={{ uri: item.product?.images?.[0] ?? 'https://via.placeholder.com/100' }}
+        source={{ uri: item.product?.primary_image_url ?? 'https://via.placeholder.com/100' }}
         style={{ width: 68, height: 68, borderRadius: 12, backgroundColor: '#222' }}
         resizeMode="cover"
       />
       <View style={{ flex: 1, marginLeft: 14 }}>
         <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: 'rgba(255,255,255,0.4)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
-          {item.product?.vendor?.brand_name ?? 'Vendor'}
+          {item.product?.vendor_profiles?.shop_name ?? 'Vendor'}
         </Text>
         <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff', fontSize: 14, marginBottom: 4 }} numberOfLines={1}>
           {item.product?.name}
@@ -85,19 +107,27 @@ export default function CartScreen() {
 
       {item.is_available ? (
         <View style={{ alignItems: 'flex-end', justifyContent: 'space-between', alignSelf: 'stretch' }}>
-          <TouchableOpacity onPress={() => handleDelete(item.id)} style={{ padding: 4 }}>
+          <TouchableOpacity onPress={() => handleDelete(item.id)} style={{ padding: 4 }} disabled={deletingId === item.id || updatingId === item.id}>
             <Ionicons name="trash-outline" size={18} color="rgba(255,255,255,0.35)" />
           </TouchableOpacity>
           <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 6 }}>
-            <TouchableOpacity onPress={() => handleUpdate(item.id, item.quantity, -1)} style={{ padding: 2 }}>
-              <Ionicons name="remove" size={16} color="white" />
-            </TouchableOpacity>
-            <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', marginHorizontal: 10, minWidth: 16, textAlign: 'center' }}>
-              {item.quantity}
-            </Text>
-            <TouchableOpacity onPress={() => handleUpdate(item.id, item.quantity, 1)} style={{ padding: 2 }}>
-              <Ionicons name="add" size={16} color="white" />
-            </TouchableOpacity>
+            {updatingId === item.id || deletingId === item.id ? (
+              <View style={{ width: 70, height: 20, alignItems: 'center', justifyContent: 'center' }}>
+                <ActivityIndicator size="small" color="#FF6B35" />
+              </View>
+            ) : (
+              <>
+                <TouchableOpacity onPress={() => handleUpdate(item.id, item.quantity, -1)} style={{ padding: 2 }}>
+                  <Ionicons name="remove" size={16} color="white" />
+                </TouchableOpacity>
+                <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', marginHorizontal: 10, minWidth: 16, textAlign: 'center' }}>
+                  {item.quantity}
+                </Text>
+                <TouchableOpacity onPress={() => handleUpdate(item.id, item.quantity, 1)} style={{ padding: 2 }}>
+                  <Ionicons name="add" size={16} color="white" />
+                </TouchableOpacity>
+              </>
+            )}
           </View>
         </View>
       ) : (
@@ -173,13 +203,18 @@ export default function CartScreen() {
                 <SafeAreaView edges={['bottom']} className="absolute bottom-0 w-full bg-black/90 pt-4 px-5 pb-2 border-t border-white/10 backdrop-blur-xl">
                   <View className="flex-row justify-between items-center mb-4 px-2">
                     <Text className="text-white/60 text-base" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}>Subtotal</Text>
-                    <Text className="text-white text-2xl tracking-tight" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Light' }}>
-                      ${subtotal.toFixed(2)}
-                    </Text>
+                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                      {(isFetching || updateQtyMutation.isPending || deleteItemMutation.isPending) && (
+                        <ActivityIndicator size="small" color="#FF6B35" />
+                      )}
+                      <Text className="text-white text-2xl tracking-tight" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Light' }}>
+                        ${subtotal.toFixed(2)}
+                      </Text>
+                    </View>
                   </View>
                   <TouchableOpacity
                     onPress={() => router.push('/shop/checkout')}
-                    className="w-full bg-[#FF6B35] h-14 rounded-xl items-center shadow-lg shadow-orange-500/20"
+                    className="w-full bg-[#FF6B35] h-14 rounded-xl items-center justify-center shadow-lg shadow-orange-500/20"
                     activeOpacity={0.8}
                   >
                     <Text className="text-white font-bold text-lg" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>

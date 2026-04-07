@@ -4,56 +4,39 @@ import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { router } from 'expo-router';
-import { useMutation } from '@tanstack/react-query';
+import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { apiClient } from '../src/lib/apiClient';
-
-type BrandType = 'local' | 'startup' | 'established' | 'corporation';
-
-const categories = [
-    'Men\'s Fashion',
-    'Women\'s Fashion',
-    'Kids Fashion',
-    'Accessories',
-    'Footwear',
-    'Sportswear',
-];
+import { useVendor } from './contexts/VendorContext';
 
 const VendorRegistration = () => {
     const [step, setStep] = useState(1);
     const [apiError, setApiError] = useState<string | null>(null);
+    const qc = useQueryClient();
+    const { setVendorMode } = useVendor();
 
     // Form state
-    const [brandName, setBrandName] = useState('');
-    const [brandType, setBrandType] = useState<BrandType | null>(null);
-    const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
-    const [description, setDescription] = useState('');
+    const [shopName, setShopName] = useState('');
+    const [shopDescription, setShopDescription] = useState('');
     const [contactEmail, setContactEmail] = useState('');
-    const [instagram, setInstagram] = useState('');
-    const [website, setWebsite] = useState('');
-
-    const brandTypes: { value: BrandType; label: string; description: string }[] = [
-        { value: 'local', label: 'Local Brand', description: 'Small local business' },
-        { value: 'startup', label: 'Startup', description: 'Growing fashion brand' },
-        { value: 'established', label: 'Established Brand', description: 'Well-known brand' },
-        { value: 'corporation', label: 'Large Corporation', description: 'Major fashion company' },
-    ];
+    const [contactPhone, setContactPhone] = useState('');
+    const [businessAddress, setBusinessAddress] = useState('');
 
     const registerMutation = useMutation({
-        mutationFn: (body: any) => apiClient.post('/vendors/register', body),
-        onSuccess: () => router.replace({
-            pathname: '/vendor-pending' as any,
-            params: { shopName: brandName },
-        }),
+        mutationFn: (body: any) => apiClient.post('/vendors/register', body).then(r => r.data),
+        onSuccess: async (res: any) => {
+            // Ensure VendorContext refreshes and default to vendor mode
+            await qc.invalidateQueries({ queryKey: ['vendor-me'] });
+            setVendorMode(true);
+
+            // With auto-approval, this should redirect almost immediately.
+            const nameForPending = res?.vendor?.shop_name ?? shopName;
+            router.replace({
+                pathname: '/vendor-pending' as any,
+                params: { shopName: nameForPending },
+            });
+        },
         onError: (err: any) => setApiError(err.response?.data?.error ?? 'Registration failed. Please try again.'),
     });
-
-    const toggleCategory = (category: string) => {
-        if (selectedCategories.includes(category)) {
-            setSelectedCategories(selectedCategories.filter((c) => c !== category));
-        } else {
-            setSelectedCategories([...selectedCategories, category]);
-        }
-    };
 
     const handleNext = () => {
         if (step < 3) {
@@ -72,20 +55,18 @@ const VendorRegistration = () => {
     const handleComplete = () => {
         setApiError(null);
         registerMutation.mutate({
-            brand_name: brandName,
-            brand_type: brandType,
-            categories: selectedCategories,
-            description,
+            shop_name: shopName,
+            shop_description: shopDescription || undefined,
             contact_email: contactEmail,
-            instagram,
-            website,
+            contact_phone: contactPhone || undefined,
+            business_address: businessAddress || undefined,
         });
     };
 
     const canProceed = () => {
-        if (step === 1) return brandName && brandType;
-        if (step === 2) return selectedCategories.length > 0 && description;
-        if (step === 3) return contactEmail;
+        if (step === 1) return shopName.trim().length >= 2;
+        if (step === 2) return contactEmail.trim().length > 0;
+        if (step === 3) return true;
         return false;
     };
 
@@ -128,23 +109,23 @@ const VendorRegistration = () => {
                     </View>
 
                     <ScrollView style={{ flex: 1 }} contentContainerStyle={{ paddingHorizontal: 20, paddingBottom: 40 }}>
-                        {/* Step 1: Brand Info */}
+                        {/* Step 1: Shop Info */}
                         {step === 1 && (
                             <View>
                                 <Text style={{ fontSize: 24, fontFamily: 'HelveticaNeue-Bold', color: '#fff', marginBottom: 8 }}>
-                                    Brand Information
+                                    Shop Information
                                 </Text>
                                 <Text style={{ fontSize: 15, fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.6)', marginBottom: 32 }}>
-                                    Tell us about your brand
+                                    Set up your shop profile
                                 </Text>
 
                                 <Text style={{ fontSize: 14, fontFamily: 'HelveticaNeue-Medium', color: '#fff', marginBottom: 8 }}>
-                                    Brand Name*
+                                    Shop Name*
                                 </Text>
                                 <TextInput
-                                    value={brandName}
-                                    onChangeText={setBrandName}
-                                    placeholder="Enter your brand name"
+                                    value={shopName}
+                                    onChangeText={setShopName}
+                                    placeholder="e.g. Test Boutique"
                                     placeholderTextColor="rgba(255,255,255,0.4)"
                                     style={{ paddingVertical: 0, 
                                         backgroundColor: 'rgba(255,255,255,0.1)',
@@ -161,83 +142,108 @@ const VendorRegistration = () => {
                                 />
 
                                 <Text style={{ fontSize: 14, fontFamily: 'HelveticaNeue-Medium', color: '#fff', marginBottom: 12 }}>
-                                    Brand Type*
+                                    Description (Optional)
                                 </Text>
-                                {brandTypes.map((type) => (
-                                    <TouchableOpacity
-                                        key={type.value}
-                                        onPress={() => setBrandType(type.value)}
-                                        style={{
-                                            backgroundColor: brandType === type.value ? 'rgba(255, 107, 53, 0.2)' : 'rgba(255,255,255,0.05)',
-                                            borderWidth: 1,
-                                            borderColor: brandType === type.value ? '#FF6B35' : 'rgba(255,255,255,0.1)',
-                                            borderRadius: 16,
-                                            padding: 16,
-                                            marginBottom: 12,
-                                        }}
-                                    >
-                                        <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}>
-                                            <View style={{ flex: 1 }}>
-                                                <Text style={{ fontSize: 16, fontFamily: 'HelveticaNeue-Bold', color: brandType === type.value ? '#FF6B35' : '#fff' }}>
-                                                    {type.label}
-                                                </Text>
-                                                <Text style={{ fontSize: 13, fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.6)', marginTop: 2 }}>
-                                                    {type.description}
-                                                </Text>
-                                            </View>
-                                            {brandType === type.value && (
-                                                <Ionicons name="checkmark-circle" size={24} color="#FF6B35" />
-                                            )}
-                                        </View>
-                                    </TouchableOpacity>
-                                ))}
+                                <TextInput
+                                    value={shopDescription}
+                                    onChangeText={setShopDescription}
+                                    placeholder="Test shop for QA"
+                                    placeholderTextColor="rgba(255,255,255,0.4)"
+                                    multiline
+                                    numberOfLines={5}
+                                    textAlignVertical="top"
+                                    style={{
+                                        paddingVertical: 0,
+                                        backgroundColor: 'rgba(255,255,255,0.1)',
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(255,255,255,0.2)',
+                                        borderRadius: 16,
+                                        paddingHorizontal: 16,
+                                        paddingVertical: 14,
+                                        color: '#fff',
+                                        fontSize: 16,
+                                        fontFamily: 'HelveticaNeue',
+                                        height: 130,
+                                    }}
+                                />
                             </View>
                         )}
 
-                        {/* Step 2: Categories & Description */}
+                        {/* Step 2: Contact */}
                         {step === 2 && (
                             <View>
                                 <Text style={{ fontSize: 24, fontFamily: 'HelveticaNeue-Bold', color: '#fff', marginBottom: 8 }}>
-                                    Categories & Description
+                                    Contact
                                 </Text>
                                 <Text style={{ fontSize: 15, fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.6)', marginBottom: 32 }}>
-                                    What do you sell?
+                                    How can customers reach you?
                                 </Text>
-
-                                <Text style={{ fontSize: 14, fontFamily: 'HelveticaNeue-Medium', color: '#fff', marginBottom: 12 }}>
-                                    Product Categories*
-                                </Text>
-                                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, marginBottom: 24 }}>
-                                    {categories.map((category) => (
-                                        <TouchableOpacity
-                                            key={category}
-                                            onPress={() => toggleCategory(category)}
-                                            style={{
-                                                backgroundColor: selectedCategories.includes(category) ? '#FF6B35' : 'rgba(255,255,255,0.1)',
-                                                borderWidth: 1,
-                                                borderColor: selectedCategories.includes(category) ? '#FF6B35' : 'rgba(255,255,255,0.2)',
-                                                borderRadius: 20,
-                                                paddingHorizontal: 16,
-                                                paddingVertical: 10,
-                                            }}
-                                        >
-                                            <Text style={{ fontSize: 14, fontFamily: 'HelveticaNeue', color: '#fff' }}>
-                                                {category}
-                                            </Text>
-                                        </TouchableOpacity>
-                                    ))}
-                                </View>
-
                                 <Text style={{ fontSize: 14, fontFamily: 'HelveticaNeue-Medium', color: '#fff', marginBottom: 8 }}>
-                                    Brand Description*
+                                    Contact Email*
                                 </Text>
                                 <TextInput
-                                    value={description}
-                                    onChangeText={setDescription}
-                                    placeholder="Tell customers about your brand..."
+                                    value={contactEmail}
+                                    onChangeText={setContactEmail}
+                                    placeholder="vendor@wearism.test"
+                                    placeholderTextColor="rgba(255,255,255,0.4)"
+                                    keyboardType="email-address"
+                                    autoCapitalize="none"
+                                    style={{
+                                        paddingVertical: 0,
+                                        backgroundColor: 'rgba(255,255,255,0.1)',
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(255,255,255,0.2)',
+                                        borderRadius: 16,
+                                        paddingHorizontal: 16,
+                                        paddingVertical: 14,
+                                        color: '#fff',
+                                        fontSize: 16,
+                                        fontFamily: 'HelveticaNeue',
+                                        marginBottom: 24,
+                                    }}
+                                />
+
+                                <Text style={{ fontSize: 14, fontFamily: 'HelveticaNeue-Medium', color: '#fff', marginBottom: 8 }}>
+                                    Phone (Optional)
+                                </Text>
+                                <TextInput
+                                    value={contactPhone}
+                                    onChangeText={setContactPhone}
+                                    placeholder="+92300000000"
+                                    placeholderTextColor="rgba(255,255,255,0.4)"
+                                    keyboardType="phone-pad"
+                                    style={{
+                                        paddingVertical: 0,
+                                        backgroundColor: 'rgba(255,255,255,0.1)',
+                                        borderWidth: 1,
+                                        borderColor: 'rgba(255,255,255,0.2)',
+                                        borderRadius: 16,
+                                        paddingHorizontal: 16,
+                                        paddingVertical: 14,
+                                        color: '#fff',
+                                        fontSize: 16,
+                                        fontFamily: 'HelveticaNeue',
+                                    }}
+                                />
+                            </View>
+                        )}
+
+                        {/* Step 3: Business Address */}
+                        {step === 3 && (
+                            <View>
+                                <Text style={{ fontSize: 24, fontFamily: 'HelveticaNeue-Bold', color: '#fff', marginBottom: 8 }}>
+                                    Business Address
+                                </Text>
+                                <Text style={{ fontSize: 15, fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.6)', marginBottom: 32 }}>
+                                    Where is your shop based?
+                                </Text>
+                                <TextInput
+                                    value={businessAddress}
+                                    onChangeText={setBusinessAddress}
+                                    placeholder="123 Test St Lahore"
                                     placeholderTextColor="rgba(255,255,255,0.4)"
                                     multiline
-                                    numberOfLines={6}
+                                    numberOfLines={4}
                                     textAlignVertical="top"
                                     style={{ paddingVertical: 0, 
                                         backgroundColor: 'rgba(255,255,255,0.1)',
@@ -249,89 +255,7 @@ const VendorRegistration = () => {
                                         color: '#fff',
                                         fontSize: 16,
                                         fontFamily: 'HelveticaNeue',
-                                        height: 140,
-                                    }}
-                                />
-                            </View>
-                        )}
-
-                        {/* Step 3: Contact Info */}
-                        {step === 3 && (
-                            <View>
-                                <Text style={{ fontSize: 24, fontFamily: 'HelveticaNeue-Bold', color: '#fff', marginBottom: 8 }}>
-                                    Contact Information
-                                </Text>
-                                <Text style={{ fontSize: 15, fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.6)', marginBottom: 32 }}>
-                                    How can customers reach you?
-                                </Text>
-
-                                <Text style={{ fontSize: 14, fontFamily: 'HelveticaNeue-Medium', color: '#fff', marginBottom: 8 }}>
-                                    Contact Email*
-                                </Text>
-                                <TextInput
-                                    value={contactEmail}
-                                    onChangeText={setContactEmail}
-                                    placeholder="brand@example.com"
-                                    placeholderTextColor="rgba(255,255,255,0.4)"
-                                    keyboardType="email-address"
-                                    autoCapitalize="none"
-                                    style={{ paddingVertical: 0, 
-                                        backgroundColor: 'rgba(255,255,255,0.1)',
-                                        borderWidth: 1,
-                                        borderColor: 'rgba(255,255,255,0.2)',
-                                        borderRadius: 16,
-                                        paddingHorizontal: 16,
-                                        paddingVertical: 14,
-                                        color: '#fff',
-                                        fontSize: 16,
-                                        fontFamily: 'HelveticaNeue',
-                                        marginBottom: 24,
-                                    }}
-                                />
-
-                                <Text style={{ fontSize: 14, fontFamily: 'HelveticaNeue-Medium', color: '#fff', marginBottom: 8 }}>
-                                    Instagram (Optional)
-                                </Text>
-                                <TextInput
-                                    value={instagram}
-                                    onChangeText={setInstagram}
-                                    placeholder="@yourbrand"
-                                    placeholderTextColor="rgba(255,255,255,0.4)"
-                                    autoCapitalize="none"
-                                    style={{ paddingVertical: 0, 
-                                        backgroundColor: 'rgba(255,255,255,0.1)',
-                                        borderWidth: 1,
-                                        borderColor: 'rgba(255,255,255,0.2)',
-                                        borderRadius: 16,
-                                        paddingHorizontal: 16,
-                                        paddingVertical: 14,
-                                        color: '#fff',
-                                        fontSize: 16,
-                                        fontFamily: 'HelveticaNeue',
-                                        marginBottom: 24,
-                                    }}
-                                />
-
-                                <Text style={{ fontSize: 14, fontFamily: 'HelveticaNeue-Medium', color: '#fff', marginBottom: 8 }}>
-                                    Website (Optional)
-                                </Text>
-                                <TextInput
-                                    value={website}
-                                    onChangeText={setWebsite}
-                                    placeholder="https://yourbrand.com"
-                                    placeholderTextColor="rgba(255,255,255,0.4)"
-                                    keyboardType="url"
-                                    autoCapitalize="none"
-                                    style={{ paddingVertical: 0, 
-                                        backgroundColor: 'rgba(255,255,255,0.1)',
-                                        borderWidth: 1,
-                                        borderColor: 'rgba(255,255,255,0.2)',
-                                        borderRadius: 16,
-                                        paddingHorizontal: 16,
-                                        paddingVertical: 14,
-                                        color: '#fff',
-                                        fontSize: 16,
-                                        fontFamily: 'HelveticaNeue',
+                                        height: 120,
                                     }}
                                 />
                             </View>

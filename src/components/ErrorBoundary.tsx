@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity } from 'react-native';
+import { router } from 'expo-router';
 
 interface Props { children: React.ReactNode; }
 interface State { hasError: boolean; }
@@ -7,12 +8,29 @@ interface State { hasError: boolean; }
 export class ErrorBoundary extends React.Component<Props, State> {
   state: State = { hasError: false };
 
-  static getDerivedStateFromError(): State {
+  static getDerivedStateFromError(error: any): State {
+    // null/undefined = React Fast Refresh reconciler bailout, not a real crash.
+    // Returning hasError: false means the boundary stays invisible and the
+    // screen continues normally — which is the correct behaviour in Expo Go.
+    if (error == null) return { hasError: false };
     return { hasError: true };
   }
 
-  componentDidCatch(error: Error, info: React.ErrorInfo) {
-    console.error('[ErrorBoundary]', error, info);
+  componentDidCatch(error: any, info: React.ErrorInfo) {
+    // Ignore the Fast Refresh null-error blips entirely.
+    if (error == null) return;
+
+    console.error('[ErrorBoundary]', error?.message);
+    if (error?.stack) console.error('[ErrorBoundary stack]', error.stack);
+    console.error('[ErrorBoundary componentStack]', info?.componentStack);
+    try {
+      console.error(
+        '[FULL ERROR OBJECT]',
+        JSON.stringify(error, Object.getOwnPropertyNames(error))
+      );
+    } catch {
+      // ignore
+    }
   }
 
   render() {
@@ -26,7 +44,15 @@ export class ErrorBoundary extends React.Component<Props, State> {
             An unexpected error occurred. Please try again.
           </Text>
           <TouchableOpacity
-            onPress={() => this.setState({ hasError: false })}
+            onPress={() => {
+              this.setState({ hasError: false });
+              // If router isn't ready yet, don't crash the fallback UI.
+              try {
+                router.replace('/home');
+              } catch {
+                // no-op
+              }
+            }}
             style={{ backgroundColor: '#FF6B35', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 999 }}
           >
             <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 16 }}>

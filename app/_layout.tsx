@@ -6,6 +6,7 @@ import { useAuthStore } from '../src/stores/authStore';
 import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
+import { SafeAreaProvider } from 'react-native-safe-area-context';
 import VendorProvider from './contexts/VendorContext';
 import { registerFcmToken, setupNotificationHandlers } from '../src/lib/notifications';
 
@@ -62,13 +63,15 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   return (
-    <ErrorBoundary>
-      {/* Profile: `app/profile/_layout.tsx` Stack registers `index`, `[id]` (public user), and `edit`. */}
-      <QueryClientProvider client={queryClient}>
-        <VendorProvider>
-          <AuthGuard />
-        </VendorProvider>
-      </QueryClientProvider>
-    </ErrorBoundary>
+    <SafeAreaProvider>
+      <ErrorBoundary>
+        <QueryClientProvider client={queryClient}>
+          <VendorProvider>
+            {/* Profile: `app/profile/_layout.tsx` Stack registers `index`, `[id]` (public user), and `edit`. */}
+            <AuthGuard />
+          </VendorProvider>
+        </QueryClientProvider>
+      </ErrorBoundary>
+    </SafeAreaProvider>
   );
 }

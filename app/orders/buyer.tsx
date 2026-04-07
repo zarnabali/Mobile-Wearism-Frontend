@@ -30,7 +30,9 @@ export default function BuyerOrdersScreen() {
     queryFn: () => apiClient.get('/orders').then(r => r.data),
   });
 
-  const orders = data?.orders || [];
+  // Backend uses standard paginated response:
+  // { success: true, data: orders[], pagination: {...} }
+  const orders = data?.data || [];
 
   // ─── Cancel Order Mutation ──────────────────────────────────────────────
   const cancelMutation = useMutation({
@@ -68,7 +70,7 @@ export default function BuyerOrdersScreen() {
               Order #{item.id.slice(0, 8)}
             </Text>
             <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff', fontSize: 15 }}>
-              {item.vendor?.brand_name || 'Vendor'}
+              {item.vendor_profiles?.shop_name || 'Vendor'}
             </Text>
           </View>
           <View style={{ backgroundColor: statusStyle.bg, borderWidth: 1, borderColor: statusStyle.border, borderRadius: 999, paddingHorizontal: 12, paddingVertical: 5 }}>
@@ -91,12 +93,14 @@ export default function BuyerOrdersScreen() {
         {isExpanded && (
           <View style={{ paddingTop: 14 }}>
             <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: 'rgba(255,255,255,0.6)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>Items</Text>
-            {item.items?.map((line: any) => (
+            {item.order_items?.map((line: any) => (
               <View key={line.id} style={{ flexDirection: 'row', marginBottom: 10, alignItems: 'center' }}>
-                <Image source={{ uri: line.product?.images?.[0] ?? 'https://via.placeholder.com/50' }} style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: '#333' }} />
+                <Image source={{ uri: line.product_image ?? 'https://via.placeholder.com/50' }} style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: '#333' }} />
                 <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.9)', fontSize: 13 }}>{line.product?.name}</Text>
-                  <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>Qty: {line.quantity} · ${(line.price * line.quantity).toFixed(2)}</Text>
+                  <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.9)', fontSize: 13 }}>{line.product_name}</Text>
+                  <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>
+                    Qty: {line.quantity} · ${(line.unit_price * line.quantity).toFixed(2)}
+                  </Text>
                 </View>
               </View>
             ))}

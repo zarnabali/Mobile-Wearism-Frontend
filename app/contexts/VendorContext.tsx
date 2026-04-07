@@ -5,17 +5,14 @@ import { useAuthStore } from '../../src/stores/authStore';
 
 export interface VendorData {
     isVendor: boolean;
-    brandName: string;
-    brandType: 'local' | 'startup' | 'established' | 'corporation' | null;
-    categories: string[];
-    description: string;
-    logo: string | null;
-    banner: string | null;
+    status: 'pending' | 'approved' | 'suspended' | null;
+    shopName: string;
+    shopDescription: string;
+    shopLogoUrl: string | null;
+    shopBannerUrl: string | null;
     contactEmail: string;
-    socialLinks: {
-        instagram?: string;
-        website?: string;
-    };
+    contactPhone: string;
+    businessAddress: string;
 }
 
 interface VendorContextType {
@@ -28,14 +25,14 @@ interface VendorContextType {
 
 const defaultVendorData: VendorData = {
     isVendor: false,
-    brandName: '',
-    brandType: null,
-    categories: [],
-    description: '',
-    logo: null,
-    banner: null,
+    status: null,
+    shopName: '',
+    shopDescription: '',
+    shopLogoUrl: null,
+    shopBannerUrl: null,
     contactEmail: '',
-    socialLinks: {},
+    contactPhone: '',
+    businessAddress: '',
 };
 
 const VendorContext = createContext<VendorContextType | undefined>(undefined);
@@ -54,15 +51,15 @@ export const VendorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     const vendorData: VendorData = apiVendor?.vendor
         ? {
-              isVendor: true,
-              brandName: apiVendor.vendor.brand_name ?? '',
-              brandType: apiVendor.vendor.brand_type ?? null,
-              categories: apiVendor.vendor.categories ?? [],
-              description: apiVendor.vendor.description ?? '',
-              logo: apiVendor.vendor.logo_url ?? null,
-              banner: apiVendor.vendor.banner_url ?? null,
+              isVendor: apiVendor.vendor.status !== 'suspended',
+              status: apiVendor.vendor.status ?? null,
+              shopName: apiVendor.vendor.shop_name ?? '',
+              shopDescription: apiVendor.vendor.shop_description ?? '',
+              shopLogoUrl: apiVendor.vendor.shop_logo_url ?? null,
+              shopBannerUrl: apiVendor.vendor.shop_banner_url ?? null,
               contactEmail: apiVendor.vendor.contact_email ?? '',
-              socialLinks: apiVendor.vendor.social_links ?? {},
+              contactPhone: apiVendor.vendor.contact_phone ?? '',
+              businessAddress: apiVendor.vendor.business_address ?? '',
           }
         : defaultVendorData;
 

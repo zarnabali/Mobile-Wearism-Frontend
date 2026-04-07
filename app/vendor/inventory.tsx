@@ -13,9 +13,8 @@ import { EmptyState } from '../../src/components/EmptyState';
 interface VendorProduct {
     id: string;
     name: string;
-    image_url?: string;
+    primary_image_url?: string;
     price: number;
-    stock: number;
     stock_quantity?: number;
     sales_count?: number;
     status?: 'active' | 'archived' | 'draft';
@@ -50,9 +49,9 @@ function ProductRow({ product }: { product: VendorProduct }) {
             }}
             activeOpacity={0.75}
         >
-            {product.image_url ? (
+            {product.primary_image_url ? (
                 <Image
-                    source={{ uri: product.image_url }}
+                    source={{ uri: product.primary_image_url }}
                     style={{ width: 64, height: 64, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)' }}
                     resizeMode="cover"
                 />
@@ -73,7 +72,7 @@ function ProductRow({ product }: { product: VendorProduct }) {
                     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
                         <Ionicons name="cube-outline" size={12} color="rgba(255,255,255,0.4)" />
                         <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>
-                            {product.stock} in stock
+                            {(product.stock_quantity ?? 0)} in stock
                         </Text>
                     </View>
                     {product.is_trending && (
@@ -125,7 +124,7 @@ const VendorInventory = () => {
 
     const products: VendorProduct[] = data?.products ?? [];
     const activeCount = products.filter((p) => p.status === 'active' || p.is_active === true).length;
-    const totalStock = products.reduce((sum, p) => sum + (p.stock ?? p.stock_quantity ?? 0), 0);
+    const totalStock = products.reduce((sum, p) => sum + (p.stock_quantity ?? 0), 0);
 
     return (
         <View style={{ flex: 1, backgroundColor: '#000' }}>
