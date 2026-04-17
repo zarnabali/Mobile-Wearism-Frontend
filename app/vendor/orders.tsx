@@ -170,30 +170,43 @@ export default function VendorOrdersScreen() {
             <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 20 }}>Orders</Text>
           </View>
 
-          {/* Status filter tabs */}
-          <ScrollView
-            horizontal
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20, paddingVertical: 12, gap: 8 }}
-          >
-            {TABS.map(tab => (
-              <TouchableOpacity
-                key={tab}
-                onPress={() => setActiveTab(tab)}
-                style={{
-                  paddingHorizontal: 18, paddingVertical: 9, borderRadius: 999, borderWidth: 1,
-                  backgroundColor: activeTab === tab ? 'rgba(255,107,53,0.18)' : 'rgba(255,255,255,0.06)',
-                  borderColor: activeTab === tab ? 'rgba(255,107,53,0.6)' : 'rgba(255,255,255,0.14)',
-                }}
-              >
-                <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: activeTab === tab ? '#FF6B35' : 'rgba(255,255,255,0.55)', fontSize: 14, textTransform: 'capitalize' }}>
-                  {tab}
-                </Text>
-              </TouchableOpacity>
-            ))}
-          </ScrollView>
+          {/* Status filter tabs — single horizontal row; do not let ScrollView expand vertically */}
+          <View style={{ flexGrow: 0, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.06)' }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ flexGrow: 0 }}
+              contentContainerStyle={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 20,
+                paddingVertical: 10,
+                gap: 8,
+              }}
+            >
+              {TABS.map(tab => (
+                <TouchableOpacity
+                  key={tab}
+                  onPress={() => setActiveTab(tab)}
+                  style={{
+                    paddingHorizontal: 18,
+                    paddingVertical: 9,
+                    borderRadius: 999,
+                    borderWidth: 1,
+                    backgroundColor: activeTab === tab ? 'rgba(255,107,53,0.18)' : 'rgba(255,255,255,0.06)',
+                    borderColor: activeTab === tab ? 'rgba(255,107,53,0.6)' : 'rgba(255,255,255,0.14)',
+                  }}
+                >
+                  <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: activeTab === tab ? '#FF6B35' : 'rgba(255,255,255,0.55)', fontSize: 14, textTransform: 'capitalize' }}>
+                    {tab}
+                  </Text>
+                </TouchableOpacity>
+              ))}
+            </ScrollView>
+          </View>
 
           <FlatList
+            style={{ flex: 1 }}
             data={orders}
             keyExtractor={i => i.id}
             renderItem={renderOrder}

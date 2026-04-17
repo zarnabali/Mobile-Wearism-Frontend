@@ -162,9 +162,9 @@ export default function VendorOrdersScreen() {
   return (
     <View className="flex-1 bg-black">
       <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
-        <SafeAreaView className="flex-[0.9]" edges={['top']}>
+        <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           {/* Header */}
-          <View className="px-5 h-14 border-b border-white/10 flex-row items-center z-10">
+          <View className="px-5 py-3 border-b border-white/10 flex-row items-center">
             <TouchableOpacity onPress={() => router.back()} className="mr-4">
               <Ionicons name="arrow-back" size={24} color="white" />
             </TouchableOpacity>
@@ -173,17 +173,28 @@ export default function VendorOrdersScreen() {
             </Text>
           </View>
 
-          {/* Status Tabs */}
-          <View className="px-5 h-14 border-b border-white/5">
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+          {/* Status tabs — horizontal row; avoid h-14 chips + column layout stretching the strip */}
+          <View style={{ flexGrow: 0, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' }}>
+            <ScrollView
+              horizontal
+              showsHorizontalScrollIndicator={false}
+              style={{ flexGrow: 0 }}
+              contentContainerStyle={{
+                flexDirection: 'row',
+                alignItems: 'center',
+                paddingHorizontal: 20,
+                paddingVertical: 10,
+                gap: 10,
+              }}
+            >
               {TABS.map(tab => (
                 <TouchableOpacity
                   key={tab}
                   onPress={() => setActiveTab(tab)}
-                  className={`px-4 h-14 bg-white/5 rounded-full border ${activeTab === tab ? 'bg-[#FF6B35]/20 border-[#FF6B35]' : 'border-white/20'}`}
+                  className={`px-4 py-2.5 bg-white/5 rounded-full border ${activeTab === tab ? 'bg-[#FF6B35]/20 border-[#FF6B35]' : 'border-white/20'}`}
                 >
                   <Text
-                    style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium', color: activeTab === tab ? '#FF6B35' : 'rgba(255,255,255,0.6)' }}
+                    style={{ fontFamily: 'HelveticaNeue-Medium', color: activeTab === tab ? '#FF6B35' : 'rgba(255,255,255,0.6)' }}
                     className="capitalize text-sm"
                   >
                     {tab}
@@ -194,6 +205,7 @@ export default function VendorOrdersScreen() {
           </View>
 
           <FlatList
+            style={{ flex: 1 }}
             data={orders}
             keyExtractor={(i) => i.id}
             renderItem={renderOrder}

@@ -99,7 +99,7 @@ const MessagesScreen = () => {
             </View>
           </ScrollView>
         </SafeAreaView>
-        <BottomNav active="messages" />
+        <BottomNav active="feed" />
       </LinearGradient>
     </View>
   );

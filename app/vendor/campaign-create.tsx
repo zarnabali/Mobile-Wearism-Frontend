@@ -17,7 +17,6 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
-import VendorNav from '../components/VendorNav';
 import { apiClient } from '../../src/lib/apiClient';
 
 type VendorProduct = {
@@ -91,14 +90,22 @@ export default function CampaignCreateScreen() {
     });
     if (!result.canceled) {
       const asset = result.assets[0];
-      // Minimal v1: store as local URI (display only). Upload pipeline can be added later.
       setCoverUrl(asset.uri);
-      Alert.alert(
-        'Cover selected',
-        'Cover upload will be wired next (storage path). For now this is a local preview.'
-      );
     }
   };
+
+  function buildImageFormData(uri: string) {
+    const form = new FormData();
+    const ext = uri.split('.').pop()?.toLowerCase();
+    const name = `cover_${Date.now()}.${ext && ext.length <= 5 ? ext : 'jpg'}`;
+    const type =
+      ext === 'png' ? 'image/png' :
+      ext === 'webp' ? 'image/webp' :
+      'image/jpeg';
+
+    form.append('file', { uri, name, type } as any);
+    return form;
+  }
 
   const toggleSelect = (pid: string) => {
     setSelected((prev) => {
@@ -111,14 +118,15 @@ export default function CampaignCreateScreen() {
 
   const createOrUpdateMutation = useMutation({
     mutationFn: async () => {
+      const hasLocalCover = !!coverUrl && !coverUrl.startsWith('http');
+
       const payload: any = {
         title: title.trim(),
         motive: motive.trim() || undefined,
         description: description.trim() || undefined,
         status,
         product_ids: Array.from(selected),
-        // cover_image_url is accepted by backend; for v1 this is a URL string.
-        // Upload-to-storage can be added later; keep UI consistent now.
+        // If we already have a hosted URL, persist it directly.
         cover_image_url: coverUrl && coverUrl.startsWith('http') ? coverUrl : undefined,
       };
 
@@ -127,13 +135,34 @@ export default function CampaignCreateScreen() {
 
       if (isEdit) {
         const res = await apiClient.patch(`/campaigns/${id}`, payload);
-        return res.data.campaign;
+        let campaign = res.data.campaign;
+
+        if (hasLocalCover && coverUrl) {
+          const form = buildImageFormData(coverUrl);
+          const up = await apiClient.post(`/campaigns/${id}/cover`, form, {
+            headers: { 'Content-Type': 'multipart/form-data' },
+          });
+          campaign = up.data.campaign;
+        }
+
+        return campaign;
       }
       const res = await apiClient.post('/campaigns', payload);
-      return res.data.campaign;
+      let campaign = res.data.campaign;
+
+      if (hasLocalCover && coverUrl) {
+        const form = buildImageFormData(coverUrl);
+        const up = await apiClient.post(`/campaigns/${campaign.id}/cover`, form, {
+          headers: { 'Content-Type': 'multipart/form-data' },
+        });
+        campaign = up.data.campaign;
+      }
+
+      return campaign;
     },
-    onSuccess: () => {
+    onSuccess: (campaign: any) => {
       qc.invalidateQueries({ queryKey: ['vendor-campaigns'] });
+      if (campaign?.cover_image_url) setCoverUrl(campaign.cover_image_url);
       Alert.alert('Saved', 'Campaign saved.');
       router.back();
     },
@@ -417,7 +446,6 @@ export default function CampaignCreateScreen() {
           </View>
         </SafeAreaView>
 
-        <VendorNav active="ads" />
       </LinearGradient>
     </View>
   );

@@ -4,7 +4,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 
-type TabKey = 'feed' | 'wardrobe' | 'rate' | 'shop' | 'search' | 'messages' | 'profile';
+type TabKey = 'feed' | 'wardrobe' | 'rate' | 'shop' | 'search' | 'profile';
 
 const tabs: { key: TabKey; icon: string; label: string; href: string }[] = [
   { key: 'feed', icon: 'home', label: 'Feed', href: '/feed' },
@@ -12,9 +12,6 @@ const tabs: { key: TabKey; icon: string; label: string; href: string }[] = [
   { key: 'rate', icon: 'camera', label: 'Rate', href: '/rate' },
   { key: 'shop', icon: 'bag-handle', label: 'Shop', href: '/shop/catalog' },
   { key: 'search', icon: 'search', label: 'Search', href: '/search' },
-
-  { key: 'messages', icon: 'chatbubbles', label: 'Chat', href: '/messages' },
-
   { key: 'profile', icon: 'person', label: 'Profile', href: '/profile' },
 ];
 

@@ -75,6 +75,9 @@ export function LikeButton({ post, feedType, size = 24, showCount = true }: Like
     },
     onSettled: () => {
       qc.invalidateQueries({ queryKey: ['post', post.id] });
+      // Keep home + trending feeds and search explore grid in sync when liking from post detail
+      qc.invalidateQueries({ queryKey: ['feed'] });
+      qc.invalidateQueries({ queryKey: ['search-explore'] });
     },
   });
 

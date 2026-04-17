@@ -60,7 +60,6 @@ export const useAuthStore = create<AuthStore>((set) => ({
       full_name: fullName,
       gdpr_consent: true,
     });
-    // Do NOT log in — user must verify email first
   },
 
   // ─── Logout ─────────────────────────────────────────────────────────────

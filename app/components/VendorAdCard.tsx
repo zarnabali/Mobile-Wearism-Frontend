@@ -15,9 +15,11 @@ interface VendorAd {
 interface VendorAdCardProps {
     ad: VendorAd;
     onPress?: () => void;
+    onShopNow?: () => void;
+    onViewMore?: () => void;
 }
 
-const VendorAdCard: React.FC<VendorAdCardProps> = ({ ad, onPress }) => {
+const VendorAdCard: React.FC<VendorAdCardProps> = ({ ad, onPress, onShopNow, onViewMore }) => {
     return (
         <View style={{ marginBottom: 6 }}>
             {/* Sponsored Label */}
@@ -142,12 +144,15 @@ const VendorAdCard: React.FC<VendorAdCardProps> = ({ ad, onPress }) => {
             <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
                 <View style={{ flexDirection: 'row', gap: 8 }}>
                     <TouchableOpacity
+                        onPress={onShopNow ?? onPress}
+                        disabled={!onShopNow && !onPress}
                         style={{
                             flex: 1,
                             backgroundColor: '#FF6B35',
                             borderRadius: 12,
                             paddingVertical: 12,
                             alignItems: 'center',
+                            opacity: (!onShopNow && !onPress) ? 0.5 : 1,
                         }}
                         activeOpacity={0.8}
                     >
@@ -156,6 +161,8 @@ const VendorAdCard: React.FC<VendorAdCardProps> = ({ ad, onPress }) => {
                         </Text>
                     </TouchableOpacity>
                     <TouchableOpacity
+                        onPress={onViewMore}
+                        disabled={!onViewMore}
                         style={{
                             flex: 1,
                             backgroundColor: 'rgba(255,255,255,0.1)',
@@ -164,6 +171,7 @@ const VendorAdCard: React.FC<VendorAdCardProps> = ({ ad, onPress }) => {
                             borderColor: 'rgba(255,255,255,0.2)',
                             paddingVertical: 12,
                             alignItems: 'center',
+                            opacity: onViewMore ? 1 : 0.5,
                         }}
                         activeOpacity={0.8}
                     >

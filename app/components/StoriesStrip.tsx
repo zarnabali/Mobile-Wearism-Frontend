@@ -3,22 +3,22 @@ import { View, Text, Image, ScrollView, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 
-interface StoryItem {
+export interface StoryStripItem {
   id: string;
   name: string;
-  img: any;
+  /** Profile photo shown in the ring (cover). */
+  coverUri?: string | null;
   onPress?: () => void;
   seen?: boolean;
 }
 
 interface StoriesStripProps {
-  stories: StoryItem[];
+  stories: StoryStripItem[];
   onAddStory?: () => void;
 }
 
 const StoriesStrip: React.FC<StoriesStripProps> = ({ stories, onAddStory }) => (
   <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
-    {/* Your Story */}
     <TouchableOpacity
       onPress={onAddStory}
       className="mr-3 items-center"
@@ -47,7 +47,6 @@ const StoriesStrip: React.FC<StoriesStripProps> = ({ stories, onAddStory }) => (
       </Text>
     </TouchableOpacity>
 
-    {/* User Stories */}
     {stories.map((story) => (
       <TouchableOpacity
         key={story.id}
@@ -74,13 +73,20 @@ const StoriesStrip: React.FC<StoriesStripProps> = ({ stories, onAddStory }) => (
               borderWidth: 3,
               borderColor: '#000',
               overflow: 'hidden',
+              backgroundColor: 'rgba(0,0,0,0.35)',
             }}
           >
-            <Image
-              source={story.img}
-              style={{ width: '100%', height: '100%' }}
-              resizeMode="cover"
-            />
+            {story.coverUri ? (
+              <Image
+                source={{ uri: story.coverUri }}
+                style={{ width: '100%', height: '100%' }}
+                resizeMode="cover"
+              />
+            ) : (
+              <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
+                <Ionicons name="person" size={32} color="rgba(255,255,255,0.55)" />
+              </View>
+            )}
           </View>
         </LinearGradient>
         <Text
@@ -96,6 +102,3 @@ const StoriesStrip: React.FC<StoriesStripProps> = ({ stories, onAddStory }) => (
 );
 
 export default StoriesStrip;
-
-
-

@@ -39,7 +39,6 @@ const SignupScreen = () => {
 
   const { signup } = useAuthStore();
   const [loading, setLoading] = useState(false);
-  const [done, setDone] = useState(false);
   const [gdprConsent, setGdprConsent] = useState(false);
 
   const handleSignup = async () => {
@@ -62,7 +61,7 @@ const SignupScreen = () => {
     try {
       const fullName = `${firstName.trim()} ${lastName.trim()}`;
       await signup(email, password, fullName);
-      setDone(true);
+      router.replace('/login');
     } catch (err: any) {
       setError(err.response?.data?.error || 'Signup failed.');
     } finally {
@@ -106,19 +105,7 @@ const SignupScreen = () => {
                     Start your fashion journey with us
                   </Text>
 
-                  {/* Main Form Fields — Hide after success */}
-                  {done ? (
-                    <View className="bg-white/10 rounded-2xl p-6 border border-white/20 mb-6">
-                      <Text style={{ fontFamily: 'HelveticaNeue-Bold' }} className="text-white text-xl">
-                        Check your email
-                      </Text>
-                      <Text className="text-white/60 mt-2" style={{ fontFamily: 'HelveticaNeue' }}>
-                        We sent a verification link to {formData.email}. Click it to activate your account.
-                      </Text>
-                    </View>
-                  ) : (
-                    <>
-                      {/* First Name Input */}
+                  {/* First Name Input */}
                   <View className="mb-4">
                     <Text
                       className="text-white text-sm font-medium mb-2"
@@ -284,8 +271,6 @@ const SignupScreen = () => {
                       </Text>
                     )}
                   </TouchableOpacity>
-                  </>
-                  )}
 
                   {/* GDPR Consent Checkbox */}
                   <TouchableOpacity

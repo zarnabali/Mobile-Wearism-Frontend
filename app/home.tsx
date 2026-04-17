@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react';
+import React, { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import {
   View, Text, Image, TouchableOpacity,
   FlatList, ActivityIndicator, RefreshControl,
@@ -6,8 +6,9 @@ import {
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
-import { useInfiniteQuery } from '@tanstack/react-query';
+import { useInfiniteQuery, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
+import { useFocusEffect } from '@react-navigation/native';
 import StoriesStrip from './components/StoriesStrip';
 import StoryViewer from './components/StoryViewer';
 import BottomNav from './components/BottomNav';
@@ -19,34 +20,8 @@ import { ReportModal } from '../src/components/ReportModal';
 import { useAuthStore } from '../src/stores/authStore';
 import { apiClient } from '../src/lib/apiClient';
 
-// ─── Hardcoded stories (Phase 5 will wire to Stories API) ─────────────────
-const STORIES = [
-  { id: 's1', name: 'Ava', img: require('../assets/pictures/social.jpeg') },
-  { id: 's2', name: 'Mia', img: require('../assets/pictures/social2.jpeg') },
-  { id: 's3', name: 'Leo', img: require('../assets/pictures/social3.jpeg') },
-  { id: 's4', name: 'Kai', img: require('../assets/pictures/social4.jpeg') },
-  { id: 's5', name: 'Zoe', img: require('../assets/pictures/wardrobe.jpeg') },
-];
-
-// Hardcoded vendor ads — Phase 6 will fetch from /ads
-const VENDOR_ADS = [
-  {
-    id: 'ad1',
-    brandName: 'UrbanStyle Co.',
-    productName: 'Premium Denim Jacket',
-    productImage: require('../assets/pictures/shop.jpeg'),
-    price: '$129.99',
-    isVerified: true,
-  },
-  {
-    id: 'ad2',
-    brandName: 'Sneaker Haven',
-    productName: 'Classic White Sneakers',
-    productImage: require('../assets/pictures/shop2.jpeg'),
-    price: '$89.00',
-    isVerified: true,
-  },
-];
+/** Survives Home unmount when opening campaign/post detail so back restores scroll. */
+const feedScrollByType: Record<'home' | 'trending', number> = { home: 0, trending: 0 };
 
 function timeAgo(iso: string) {
   const diff = Date.now() - new Date(iso).getTime();
@@ -172,11 +147,15 @@ function PostCard({ post, feedType, currentUserId, onPress, onUserPress }: {
 // ─── Main screen ────────────────────────────────────────────────────────────
 const HomeScreen = () => {
   const router = useRouter();
+  const qc = useQueryClient();
   const currentUserId = useAuthStore(s => s.user?.id);
 
   const [feedType, setFeedType] = useState<'home' | 'trending'>('home');
   const [storyViewerVisible, setStoryViewerVisible] = useState(false);
   const [selectedStoryIndex, setSelectedStoryIndex] = useState(0);
+
+  const sessionIdRef = useRef(`feed_${Date.now()}_${Math.random().toString(16).slice(2)}`);
+  const listRef = useRef<FlatList>(null);
 
   const {
     data,
@@ -195,22 +174,141 @@ const HomeScreen = () => {
     initialPageParam: 1,
   });
 
+  const { data: storiesPayload } = useQuery({
+    queryKey: ['stories-feed'],
+    queryFn: () => apiClient.get('/stories/feed').then((r) => r.data),
+    enabled: !!currentUserId,
+    staleTime: 60_000,
+  });
+
+  const stripStoryItems = useMemo(() => {
+    const rows = storiesPayload?.stories ?? [];
+    return rows.map((s: any, idx: number) => ({
+      id: s.id,
+      name: s.full_name ?? 'User',
+      coverUri: s.avatar_url,
+      seen: false,
+      onPress: () => {
+        setSelectedStoryIndex(idx);
+        setStoryViewerVisible(true);
+      },
+    }));
+  }, [storiesPayload]);
+
+  const viewerStoryItems = useMemo(() => {
+    const rows = storiesPayload?.stories ?? [];
+    return rows.map((s: any) => ({
+      id: s.id,
+      name: s.full_name ?? 'User',
+      imageUri: s.image_url,
+      avatarUri: s.avatar_url,
+      timeLabel: s.created_at ? timeAgo(s.created_at) : '',
+    }));
+  }, [storiesPayload]);
+
   const rawPosts: any[] = data?.pages.flatMap((p: any) => p.posts ?? p.data ?? []) ?? [];
 
-  // Inject vendor ads every 7 posts
+  // Load active campaigns for feed injection
+  const [activeCampaigns, setActiveCampaigns] = useState<any[]>([]);
+  useEffect(() => {
+    let mounted = true;
+    apiClient.get('/campaigns/active?limit=6')
+      .then((r) => {
+        if (!mounted) return;
+        setActiveCampaigns(r.data?.campaigns ?? []);
+      })
+      .catch(() => {
+        if (!mounted) return;
+        setActiveCampaigns([]);
+      });
+    return () => { mounted = false; };
+  }, []);
+
+  const impressed = useRef<Set<string>>(new Set());
+
+  // Inject campaigns every 7 posts (only if any active campaigns exist)
   const feedItems: any[] = [];
   let adIdx = 0;
   rawPosts.forEach((post, i) => {
     feedItems.push({ type: 'post', data: post, key: `post-${post.id}` });
-    if ((i + 1) % 7 === 0) {
-      feedItems.push({ type: 'ad', data: VENDOR_ADS[adIdx % VENDOR_ADS.length], key: `ad-${i}` });
-      adIdx++;
+    if ((i + 1) % 7 === 0 && activeCampaigns.length > 0) {
+      const campaign = activeCampaigns[adIdx % activeCampaigns.length];
+      if (campaign) {
+        feedItems.push({ type: 'campaign', data: campaign, key: `campaign-${campaign.id}-${i}` });
+        adIdx++;
+      }
     }
   });
 
+  useFocusEffect(
+    useCallback(() => {
+      const y = feedScrollByType[feedType];
+      if (y < 1) return;
+      const id = requestAnimationFrame(() => {
+        listRef.current?.scrollToOffset({ offset: y, animated: false });
+      });
+      return () => cancelAnimationFrame(id);
+    }, [feedType]),
+  );
+
   const renderItem = useCallback(({ item }: { item: any }) => {
-    if (item.type === 'ad') {
-      return <VendorAdCard ad={item.data} />;
+    if (item.type === 'campaign') {
+      const c = item.data;
+      const vendorName = c.vendor_profiles?.shop_name ?? 'Brand';
+      const firstProduct = Array.isArray(c.products) ? c.products[0] : null;
+      const productName = c.title ?? firstProduct?.name ?? 'Campaign';
+      const price = firstProduct?.price != null ? `PKR ${Number(firstProduct.price).toFixed(0)}` : 'Shop now';
+      const imageSource =
+        c.cover_image_url
+          ? { uri: c.cover_image_url }
+          : (firstProduct?.primary_image_url ? { uri: firstProduct.primary_image_url } : require('../assets/pictures/shop.jpeg'));
+
+      // Track impression once per campaign per session
+      if (c?.id && !impressed.current.has(c.id)) {
+        impressed.current.add(c.id);
+        apiClient.post(`/campaigns/${c.id}/event`, {
+          event_type: 'impression',
+          product_id: firstProduct?.id,
+          session_id: sessionIdRef.current,
+        }).catch(() => {});
+      }
+
+      return (
+        <VendorAdCard
+          ad={{
+            id: c.id,
+            brandName: vendorName,
+            productName,
+            productImage: imageSource as any,
+            price,
+            isVerified: true,
+          }}
+          onPress={() => {
+            if (c?.id) {
+              apiClient.post(`/campaigns/${c.id}/event`, {
+                event_type: 'open',
+                product_id: firstProduct?.id,
+                session_id: sessionIdRef.current,
+              }).catch(() => {});
+            }
+            if (c?.id) router.push(`/shop/campaign?campaignId=${encodeURIComponent(c.id)}` as any);
+          }}
+          onShopNow={() => {
+            if (c?.id) {
+              apiClient.post(`/campaigns/${c.id}/event`, {
+                event_type: 'product_click',
+                product_id: firstProduct?.id,
+                session_id: sessionIdRef.current,
+              }).catch(() => {});
+            }
+            if (c?.id) router.push(`/shop/campaign?campaignId=${encodeURIComponent(c.id)}` as any);
+          }}
+          onViewMore={() => {
+            const vendorId = c.vendor_profiles?.id ?? c.vendor_id;
+            if (vendorId) router.push(`/shop/vendor?vendorId=${encodeURIComponent(vendorId)}` as any);
+          }}
+        />
+      );
     }
     const post = item.data;
     const author = post.profiles ?? post.user ?? {};
@@ -245,11 +343,8 @@ const HomeScreen = () => {
 
       {/* Stories strip */}
       <StoriesStrip
-        stories={STORIES.map((s, idx) => ({
-          ...s,
-          onPress: () => { setSelectedStoryIndex(idx); setStoryViewerVisible(true); },
-        }))}
-        onAddStory={() => router.push('/social/create-post' as any)}
+        stories={stripStoryItems}
+        onAddStory={() => router.push('/social/create-story' as any)}
       />
 
       {/* Feed type toggle */}
@@ -305,16 +400,28 @@ const HomeScreen = () => {
             </>
           ) : (
             <FlatList
+              ref={listRef}
               data={feedItems}
               keyExtractor={(item) => item.key}
               renderItem={renderItem}
               ListHeaderComponent={ListHeader}
               contentContainerStyle={{ paddingBottom: 120 }}
               showsVerticalScrollIndicator={false}
+              onScroll={(e) => {
+                feedScrollByType[feedType] = e.nativeEvent.contentOffset.y;
+              }}
+              scrollEventThrottle={16}
               onEndReached={() => { if (hasNextPage && !isFetchingNextPage) fetchNextPage(); }}
               onEndReachedThreshold={0.5}
               refreshControl={
-                <RefreshControl refreshing={isRefetching} onRefresh={refetch} tintColor="#FF6B35" />
+                <RefreshControl
+                  refreshing={isRefetching}
+                  onRefresh={() => {
+                    refetch();
+                    qc.invalidateQueries({ queryKey: ['stories-feed'] });
+                  }}
+                  tintColor="#FF6B35"
+                />
               }
               ListFooterComponent={
                 isFetchingNextPage
@@ -345,7 +452,7 @@ const HomeScreen = () => {
         <BottomNav active="feed" />
 
         <StoryViewer
-          stories={STORIES}
+          stories={viewerStoryItems}
           initialIndex={selectedStoryIndex}
           visible={storyViewerVisible}
           onClose={() => setStoryViewerVisible(false)}
