@@ -170,13 +170,13 @@ export default function VendorDashboard() {
             )}
 
             {/* ── Recent orders ── */}
-            {recentOrders.length > 0 && (
+                {recentOrders.length > 0 && (
               <View style={{ paddingHorizontal: 20, marginTop: 32 }}>
                 <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 14 }}>
                   <Text style={{ fontSize: 12, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.5)', letterSpacing: 1.5, textTransform: 'uppercase' }}>
                     Recent Orders
                   </Text>
-                  <TouchableOpacity onPress={() => router.push('/screens/vendor/orders' as any)}>
+                  <TouchableOpacity onPress={() => router.push('/vendor/orders' as any)}>
                     <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#FF6B35', fontSize: 13 }}>See all</Text>
                   </TouchableOpacity>
                 </View>

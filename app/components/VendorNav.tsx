@@ -5,11 +5,12 @@ import { Ionicons } from '@expo/vector-icons';
 import { Link } from 'expo-router';
 import { useVendor } from '../contexts/VendorContext';
 
-type VendorTab = 'dashboard' | 'inventory' | 'ads' | 'analytics' | 'profile';
+type VendorTab = 'dashboard' | 'inventory' | 'orders' | 'ads' | 'analytics' | 'profile';
 
 const vendorTabs = [
     { key: 'dashboard', icon: 'grid', label: 'Dashboard', href: '/vendor/dashboard' },
     { key: 'inventory', icon: 'cube', label: 'Inventory', href: '/vendor/inventory' },
+    { key: 'orders', icon: 'receipt', label: 'Orders', href: '/vendor/orders' },
     { key: 'ads', icon: 'megaphone', label: 'Ads', href: '/vendor/ads' },
     { key: 'analytics', icon: 'stats-chart', label: 'Analytics', href: '/vendor/analytics' },
     { key: 'profile', icon: 'person', label: 'Profile', href: '/profile' },

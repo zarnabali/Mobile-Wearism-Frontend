@@ -48,19 +48,92 @@ export default function ItemDetailScreen() {
     enabled: !!id,
   });
 
-  const currentAIStatus = aiData?.ai?.status ?? aiData?.status ?? item?.ai_status;
-  const isPending = currentAIStatus === 'pending';
+  const rawAIStatus = aiData?.ai?.status ?? aiData?.status ?? item?.ai_status;
+  const hasResolvedWardrobeAI =
+    !!item?.wardrobe_slot ||
+    !!item?.fashionclip_main_category ||
+    !!item?.fashionclip_sub_category ||
+    (Array.isArray(item?.fashionclip_attributes) && item.fashionclip_attributes.length > 0);
+
+  // Materialized segment rows can already be fully populated even when there is no ai_results
+  // row directly keyed by their own wardrobe item id.
+  const currentAIStatus =
+    rawAIStatus === 'not_found' && hasResolvedWardrobeAI
+      ? 'completed'
+      : rawAIStatus;
+  const isCompleted = currentAIStatus === 'completed';
   const isFailed = currentAIStatus === 'failed';
+  const isAnalyzing = !isCompleted && !isFailed;
+
+  const aiResult = aiData?.ai?.result ?? aiData?.result ?? null;
+  const segments = Array.isArray(aiResult?.segments) ? aiResult?.segments : [];
+
+  const primaryImageUrl = aiResult?.image_url ?? item?.image_url ?? null;
+
+  const seg0Gemma = segments?.[0]?.gemma_attributes ?? {};
+  const segFallbackMain = seg0Gemma?.category ?? seg0Gemma?.main_category ?? null;
+  const segFallbackSub = seg0Gemma?.subcategory ?? seg0Gemma?.sub_category ?? null;
+
+  // Category rendering must use new FashionCLIP fields; if they are null, fall back to the first segment's Gemma attributes.
+  const mainCategory = item?.fashionclip_main_category ?? segFallbackMain ?? 'unknown';
+  const subCategory = item?.fashionclip_sub_category ?? segFallbackSub ?? '';
+
+  // Temporary debug to validate the new Models PC contract.
+  React.useEffect(() => {
+    console.log('[ItemDetail AI]', {
+      itemId: id,
+      status: currentAIStatus,
+      rawStatus: rawAIStatus,
+      segmentsCount: segments.length,
+      wardrobeMain: item?.fashionclip_main_category ?? null,
+      wardrobeSub: item?.fashionclip_sub_category ?? null,
+      aiResultHasSegments: Array.isArray(aiResult?.segments),
+      hasResolvedWardrobeAI,
+    });
+  }, [id, currentAIStatus, rawAIStatus, segments.length, item?.fashionclip_main_category, item?.fashionclip_sub_category, aiResult?.segments, hasResolvedWardrobeAI]);
+
+  const rawAIJson =
+    item?.wardrobe_slot ||
+    item?.fashionclip_main_category ||
+    item?.fashionclip_sub_category ||
+    (item?.fashionclip_attributes?.length ?? 0) > 0
+      ? JSON.stringify(
+          {
+            wardrobe_slot: item?.wardrobe_slot ?? null,
+            fashionclip_main_category: item?.fashionclip_main_category ?? null,
+            fashionclip_sub_category: item?.fashionclip_sub_category ?? null,
+            fashionclip_attributes: Array.isArray(item?.fashionclip_attributes) ? item.fashionclip_attributes : null,
+            segments_present: Array.isArray(aiResult?.segments),
+            segments_length: Array.isArray(aiResult?.segments) ? aiResult?.segments.length : 0,
+          },
+          null,
+          2
+        )
+      : null;
 
   // If completed, refresh the main item to get the newly attached attributes
   React.useEffect(() => {
     if (currentAIStatus === 'completed') {
       qc.invalidateQueries({ queryKey: ['wardrobe-item', id] });
       qc.invalidateQueries({ queryKey: ['wardrobe-items'] });
+      qc.invalidateQueries({ queryKey: ['ai-status', id] });
     }
   }, [currentAIStatus, id, qc]);
 
   // ─── Mutations ──────────────────────────────────────────────────────────
+  const retryClassificationMutation = useMutation({
+    mutationFn: () => apiClient.post(`/wardrobe/items/${id}/retry-classification`).then(r => r.data),
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['ai-status', id] });
+      qc.invalidateQueries({ queryKey: ['wardrobe-item', id] });
+    },
+    onError: (err: any) => {
+      const d = err?.response?.data;
+      const msg = d?.error ?? d?.message ?? 'Retry failed.';
+      Alert.alert('Retry Failed', msg);
+    },
+  });
+
   const wornMutation = useMutation({
     mutationFn: () => apiClient.post(`/wardrobe/items/${id}/worn`),
     onSuccess: () => {
@@ -114,7 +187,7 @@ export default function ItemDetailScreen() {
           {/* Header Image */}
           <View className="h-[450px] w-full relative">
             <ImageBackground
-              source={{ uri: item.image_url }}
+              source={{ uri: primaryImageUrl ?? item.image_url }}
               style={{ width: '100%', height: '100%', justifyContent: 'flex-end' }}
               resizeMode="cover"
             >
@@ -163,7 +236,7 @@ export default function ItemDetailScreen() {
           {/* Details Section */}
           <View className="px-5 pt-4">
             {/* AI Classification Card */}
-            {isPending ? (
+            {isAnalyzing ? (
               <View className="bg-white/5 border border-orange-500/30 rounded-[24px] p-5 items-center justify-center flex-row shadow-lg my-4 shadow-orange-500/10">
                 <ActivityIndicator color="#FF6B35" style={{ marginRight: 12 }} />
                 <View style={{ flex: 1 }}>
@@ -185,6 +258,31 @@ export default function ItemDetailScreen() {
                   <Text className="text-white/60 text-xs mt-1" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}>
                     We couldn't automatically tag this image.
                   </Text>
+                  <TouchableOpacity
+                    onPress={() => retryClassificationMutation.mutate()}
+                    disabled={retryClassificationMutation.isPending}
+                    style={{
+                      marginTop: 12,
+                      backgroundColor: retryClassificationMutation.isPending ? 'rgba(255,107,53,0.25)' : 'rgba(255,107,53,0.18)',
+                      borderWidth: 1,
+                      borderColor: 'rgba(255,107,53,0.35)',
+                      paddingHorizontal: 16,
+                      paddingVertical: 10,
+                      borderRadius: 999,
+                      alignSelf: 'flex-start',
+                      flexDirection: 'row',
+                      alignItems: 'center',
+                    }}
+                  >
+                    {retryClassificationMutation.isPending ? (
+                      <ActivityIndicator size="small" color="#FF6B35" />
+                    ) : (
+                      <>
+                        <Ionicons name="refresh-outline" size={16} color="#FF6B35" style={{ marginRight: 8 }} />
+                        <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#FF6B35', fontSize: 13 }}>Retry</Text>
+                      </>
+                    )}
+                  </TouchableOpacity>
                 </View>
               </View>
             ) : (
@@ -196,28 +294,72 @@ export default function ItemDetailScreen() {
                   <Ionicons name="sparkles" size={16} color="#FF6B35" />
                 </View>
 
-                {item.wardrobe_slot && (
-                  <View className="mb-4">
-                    <Text className="text-white/40 text-xs mb-2" style={{ fontFamily: 'HelveticaNeue' }}>Category</Text>
-                    <View style={{ backgroundColor: 'rgba(255,107,53,0.2)', borderWidth: 1, borderColor: '#FF6B35', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 }}>
-                      <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#FF6B35', fontSize: 13, textTransform: 'uppercase' }}>
-                        {item.wardrobe_slot}
+                <View className="mb-4">
+                  <Text className="text-white/40 text-xs mb-2" style={{ fontFamily: 'HelveticaNeue' }}>Category</Text>
+                  <View style={{ backgroundColor: 'rgba(255,107,53,0.2)', borderWidth: 1, borderColor: '#FF6B35', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 }}>
+                    <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#FF6B35', fontSize: 13, textTransform: 'uppercase' }}>
+                      {String(mainCategory || 'unknown')}
+                    </Text>
+                    {subCategory ? (
+                      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.75)', fontSize: 11, marginTop: 2, textAlign: 'left' }}>
+                        {String(subCategory)}
+                      </Text>
+                    ) : null}
+                  </View>
+
+                  {(item?.tag || item?.wardrobe_slot) ? (
+                    <View style={{ marginTop: 8 }}>
+                      <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>
+                        {item?.tag ? `Tag: ${item.tag}` : `Slot: ${item.wardrobe_slot}`}
                       </Text>
                     </View>
-                  </View>
-                )}
+                  ) : null}
+                </View>
 
-                {(item.fashionclip_main_category || (item.fashionclip_attributes?.length > 0)) && (
+                {(mainCategory || subCategory || (item.fashionclip_attributes?.length > 0)) && (
                   <View className="mb-4">
                     <Text className="text-white/40 text-xs mb-2" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}>Attributes</Text>
                     <View className="flex-row flex-wrap">
-                      <AITag label={item.fashionclip_main_category} />
+                      <AITag label={String(mainCategory || '')} />
+                      {subCategory ? <AITag label={String(subCategory)} /> : null}
                       {item.fashionclip_attributes?.map((attr: string, idx: number) => (
-                        <AITag key={idx} label={attr} />
+                        <AITag key={idx} label={String(attr)} />
                       ))}
                     </View>
                   </View>
                 )}
+
+                {rawAIJson ? (
+                  <View className="mb-1">
+                    <Text
+                      className="text-white/40 text-xs mb-2"
+                      style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}
+                    >
+                      Raw AI JSON
+                    </Text>
+                    <View
+                      style={{
+                        backgroundColor: 'rgba(0,0,0,0.35)',
+                        borderWidth: 1,
+                        borderColor: 'rgba(255,255,255,0.10)',
+                        borderRadius: 16,
+                        padding: 12,
+                      }}
+                    >
+                      <Text
+                        selectable
+                        style={{
+                          fontFamily: 'HelveticaNeue',
+                          color: 'rgba(255,255,255,0.65)',
+                          fontSize: 11,
+                          lineHeight: 16,
+                        }}
+                      >
+                        {rawAIJson}
+                      </Text>
+                    </View>
+                  </View>
+                ) : null}
 
                 {item.color_dominant_rgb && (
                   <View>

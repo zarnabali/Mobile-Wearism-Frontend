@@ -13,6 +13,16 @@ import { EmptyState } from '../../src/components/EmptyState';
 
 function GridItem({ item }: { item: any }) {
   const router = useRouter();
+  const rawAI =
+    item?.fashionclip_main_category || item?.fashionclip_sub_category || (item?.fashionclip_attributes?.length ?? 0) > 0
+      ? {
+          main: item?.fashionclip_main_category ?? null,
+          sub: item?.fashionclip_sub_category ?? null,
+          attributes: Array.isArray(item?.fashionclip_attributes) ? item.fashionclip_attributes : null,
+        }
+      : null;
+
+  const rawAIText = rawAI ? JSON.stringify(rawAI) : null;
   return (
     <TouchableOpacity
       onPress={() => router.push(`/wardrobe/item-detail?id=${item.id}` as any)}
@@ -42,6 +52,23 @@ function GridItem({ item }: { item: any }) {
       >
         {item.name || item.fashionclip_main_category || 'Untitled Item'}
       </Text>
+      {rawAIText ? (
+        <Text
+          style={{
+            paddingVertical: 0,
+            textAlignVertical: 'top',
+            fontFamily: 'HelveticaNeue',
+            marginTop: 4,
+            paddingHorizontal: 2,
+            color: 'rgba(255,255,255,0.55)',
+            fontSize: 10,
+            lineHeight: 14,
+          }}
+          numberOfLines={2}
+        >
+          {rawAIText}
+        </Text>
+      ) : null}
     </TouchableOpacity>
   );
 }
@@ -49,6 +76,41 @@ function GridItem({ item }: { item: any }) {
 export default function WardrobeGridScreen() {
   const { slot, title } = useLocalSearchParams<{ slot: string; title: string }>();
   const router = useRouter();
+
+  const slotKey = Array.isArray(slot) ? slot[0] : slot;
+
+  const isFootwearItem = (i: any) => {
+    const main = String(i?.fashionclip_main_category || i?.tag || '').toLowerCase();
+    return main === 'shoes' || main === 'shoe' || main === 'footwear';
+  };
+
+  const matchesSlot = (targetSlot: string | undefined, i: any) => {
+    if (!targetSlot) return true;
+    const s = String(targetSlot).toLowerCase();
+    const wardrobeSlot = i?.wardrobe_slot ? String(i.wardrobe_slot).toLowerCase() : null;
+    const main = String(i?.fashionclip_main_category || i?.tag || '').toLowerCase();
+
+    if (s === 'footwear') return isFootwearItem(i);
+    if (s === 'accessories') {
+      const isFb = isFootwearItem(i);
+      return (wardrobeSlot === 'accessories' || isFb) && !isFb;
+    }
+    if (s === 'upperwear') {
+      return wardrobeSlot === 'upperwear' || ['tops', 'top', 'activewear', 'intimates'].includes(main);
+    }
+    if (s === 'lowerwear') {
+      return (
+        wardrobeSlot === 'lowerwear' ||
+        ['bottoms', 'bottom', 'dresses', 'dress', 'jeans', 'pants', 'trousers', 'shorts', 'skirt', 'leggings'].includes(main)
+      );
+    }
+    if (s === 'outerwear') {
+      return wardrobeSlot === 'outerwear' || main === 'outerwear';
+    }
+
+    // Fallback: if we don't recognize the slot, don't hide items.
+    return true;
+  };
 
   const {
     data,
@@ -61,20 +123,25 @@ export default function WardrobeGridScreen() {
   } = useInfiniteQuery({
     queryKey: ['wardrobe-grid', slot],
     queryFn: async ({ pageParam = 1 }) => {
-      // Backend paginates, just pass slot and page
-      const res = await apiClient.get(`/wardrobe/items?slot=${slot}&page=${pageParam}&limit=20`);
+      // Backend paginates; we intentionally do NOT pass `slot` here.
+      // DB slots don't include the frontend-only `footwear` tab, so client-side filtering is required.
+      const res = await apiClient.get(`/wardrobe/items?page=${pageParam}&limit=20`);
       return res.data;
     },
     initialPageParam: 1,
     getNextPageParam: (lastPage: any) => {
-      // Assuming paginated response with generic standard: has_next/next_page or items array length
-      const hasNext = lastPage.has_next ?? (lastPage.items && lastPage.items.length === 20) ?? false;
-      return hasNext ? (lastPage.current_page ?? 1) + 1 : undefined;
+      const hasNext = lastPage?.pagination?.has_next ?? lastPage?.has_next ?? false;
+      if (!hasNext) return undefined;
+      const currentPage = lastPage?.pagination?.page ?? 1;
+      return currentPage + 1;
     },
-    enabled: !!slot,
+    enabled: !!slotKey,
   });
 
   const flattenItems = data?.pages.flatMap(p => p.items ?? p.data ?? p) ?? [];
+  const filteredItems = matchesSlot(slotKey, null)
+    ? flattenItems
+    : flattenItems.filter((i: any) => matchesSlot(slotKey, i));
 
   return (
     <View className="flex-1 bg-black">
@@ -97,7 +164,7 @@ export default function WardrobeGridScreen() {
                 <Skeleton key={i} className="w-[48%] aspect-square" />
               ))}
             </View>
-          ) : flattenItems.length === 0 ? (
+          ) : filteredItems.length === 0 ? (
             <EmptyState
               icon="shirt-outline"
               title="Nothing here yet"
@@ -108,7 +175,7 @@ export default function WardrobeGridScreen() {
           ) : (
             <FlatList
               key={2} // Forces a remount during Fast Refresh to avoid the invariant violation
-              data={flattenItems}
+              data={filteredItems}
               numColumns={2}
               columnWrapperStyle={{ justifyContent: 'space-between' }}
               keyExtractor={(item) => item.id}

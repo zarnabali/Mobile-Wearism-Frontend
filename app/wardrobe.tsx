@@ -18,6 +18,8 @@ const SLOT_CONFIG: Record<string, { label: string; icon: string }> = {
   upperwear:   { label: 'Tops',       icon: 'shirt-outline' },
   lowerwear:   { label: 'Bottoms',    icon: 'body-outline' },
   outerwear:   { label: 'Outerwear',  icon: 'cloud-outline' },
+  // Frontend-only pseudo-slot: footwear is physically stored as accessories in DB,
+  // but rendered separately for better UX using fashionclip_main_category.
   footwear:    { label: 'Footwear',   icon: 'footsteps-outline' },
   accessories: { label: 'Accessories', icon: 'glasses-outline' },
 };
@@ -216,8 +218,17 @@ const WardrobeScreen = () => {
   const pending = items.filter((i: any) => !i.wardrobe_slot);
 
   // Per-slot counts + first image for thumbnail
+  const isFootwear = (i: any) => {
+    const main = String(i?.fashionclip_main_category || '').toLowerCase();
+    return main === 'shoes' || main === 'shoe' || main === 'footwear';
+  };
+
   const slotMeta = Object.keys(SLOT_CONFIG).map(slot => {
-    const slotItems = items.filter((i: any) => i.wardrobe_slot === slot);
+    const slotItems = items.filter((i: any) => {
+      if (slot === 'footwear') return isFootwear(i);
+      if (slot === 'accessories') return i.wardrobe_slot === 'accessories' && !isFootwear(i);
+      return i.wardrobe_slot === slot;
+    });
     return { slot, count: slotItems.length, thumb: slotItems[0]?.image_url ?? null };
   });
 

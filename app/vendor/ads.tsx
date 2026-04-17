@@ -1,44 +1,29 @@
 import React from 'react';
-import { View, Text, ScrollView, TouchableOpacity, ImageBackground } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, ImageBackground, ActivityIndicator } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import VendorNav from '../components/VendorNav';
+import { useQuery } from '@tanstack/react-query';
+import { apiClient } from '../../src/lib/apiClient';
+import { router } from 'expo-router';
 
 const VendorAds = () => {
-    const activeCampaigns = [
-        {
-            id: 'c1',
-            name: 'Summer Collection Launch',
-            products: 5,
-            impressions: '12.5K',
-            clicks: 842,
-            status: 'active',
-            budget: '$500',
-            image: require('../../assets/pictures/shop.jpeg'),
-        },
-        {
-            id: 'c2',
-            name: 'Clearance Sale',
-            products: 3,
-            impressions: '8.2K',
-            clicks: 567,
-            status: 'active',
-            budget: '$300',
-            image: require('../../assets/pictures/social2.jpeg'),
-        },
-    ];
+    const { data, isLoading } = useQuery({
+        queryKey: ['vendor-campaigns'],
+        queryFn: () => apiClient.get('/campaigns/me').then((r) => r.data),
+    });
 
-    const aiCampaigns = [
-        {
-            id: 'ai1',
-            name: 'AI - Popular Products',
-            products: 4,
-            impressions: '18.3K',
-            clicks: 1245,
-            image: require('../../assets/pictures/wardrobe.jpeg'),
-        },
-    ];
+    const campaigns: any[] = data?.campaigns ?? [];
+    const aiCampaigns = campaigns.filter((c) => c.type === 'ai');
+    const activeCampaigns = campaigns.filter((c) => c.type !== 'ai');
+
+    const formatCompact = (n: number) => {
+        if (!Number.isFinite(n)) return '0';
+        if (n >= 1000000) return `${(n / 1000000).toFixed(1)}M`;
+        if (n >= 1000) return `${(n / 1000).toFixed(1)}K`;
+        return String(n);
+    };
 
     return (
         <View style={{ flex: 1, backgroundColor: '#000' }}>
@@ -59,6 +44,7 @@ const VendorAds = () => {
                                 </Text>
                             </View>
                             <TouchableOpacity
+                                onPress={() => router.push('/vendor/campaign-create' as any)}
                                 style={{
                                     backgroundColor: '#FF6B35',
                                     borderRadius: 14,
@@ -106,7 +92,20 @@ const VendorAds = () => {
                                 </Text>
                             </View>
 
-                            {aiCampaigns.map((campaign) => (
+                            {isLoading ? (
+                                <View style={{ height: 140, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center' }}>
+                                    <ActivityIndicator color="rgba(255,107,53,0.6)" />
+                                </View>
+                            ) : aiCampaigns.length === 0 ? (
+                                <View style={{ borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 18 }}>
+                                    <Text style={{ fontSize: 14, fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.65)' }}>
+                                        No AI campaigns yet.
+                                    </Text>
+                                    <Text style={{ fontSize: 12, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.45)', marginTop: 6 }}>
+                                        AI campaigns will appear here once the recommendation models are live.
+                                    </Text>
+                                </View>
+                            ) : aiCampaigns.map((campaign) => (
                                 <View
                                     key={campaign.id}
                                     style={{
@@ -117,7 +116,7 @@ const VendorAds = () => {
                                     }}
                                 >
                                     <ImageBackground
-                                        source={campaign.image}
+                                        source={campaign.cover_image_url ? { uri: campaign.cover_image_url } : require('../../assets/pictures/wardrobe.jpeg')}
                                         style={{ width: '100%', height: '100%' }}
                                         imageStyle={{ opacity: 0.3 }}
                                     >
@@ -128,10 +127,10 @@ const VendorAds = () => {
                                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                                 <View style={{ flex: 1 }}>
                                                     <Text style={{ fontSize: 18, fontFamily: 'HelveticaNeue', color: '#fff', marginBottom: 6 }}>
-                                                        {campaign.name}
+                                                        {campaign.title}
                                                     </Text>
                                                     <Text style={{ fontSize: 11, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                                        {campaign.products} products • Automated
+                                                        {(campaign.products?.length ?? 0)} products • Automated
                                                     </Text>
                                                 </View>
                                             </View>
@@ -142,7 +141,7 @@ const VendorAds = () => {
                                                         Impressions
                                                     </Text>
                                                     <Text style={{ fontSize: 22, fontFamily: 'HelveticaNeue-Thin', color: '#fff', marginTop: 4 }}>
-                                                        {campaign.impressions}
+                                                        {formatCompact(Number(campaign.impressions ?? 0))}
                                                     </Text>
                                                 </View>
                                                 <View style={{ flex: 1 }}>
@@ -150,7 +149,7 @@ const VendorAds = () => {
                                                         Clicks
                                                     </Text>
                                                     <Text style={{ fontSize: 22, fontFamily: 'HelveticaNeue-Thin', color: '#FFD700', marginTop: 4 }}>
-                                                        {campaign.clicks}
+                                                        {formatCompact(Number(campaign.product_clicks ?? 0))}
                                                     </Text>
                                                 </View>
                                             </View>
@@ -166,10 +165,24 @@ const VendorAds = () => {
                                 Your Campaigns
                             </Text>
 
-                            {activeCampaigns.map((campaign) => (
+                            {isLoading ? (
+                                <View style={{ height: 140, borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', alignItems: 'center' }}>
+                                    <ActivityIndicator color="rgba(255,107,53,0.6)" />
+                                </View>
+                            ) : activeCampaigns.length === 0 ? (
+                                <View style={{ borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 18 }}>
+                                    <Text style={{ fontSize: 14, fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.65)' }}>
+                                        No campaigns yet.
+                                    </Text>
+                                    <Text style={{ fontSize: 12, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.45)', marginTop: 6 }}>
+                                        Tap Create to launch a collection campaign.
+                                    </Text>
+                                </View>
+                            ) : activeCampaigns.map((campaign) => (
                                 <TouchableOpacity
                                     key={campaign.id}
                                     activeOpacity={0.8}
+                                    onPress={() => router.push(`/vendor/campaign-create?id=${campaign.id}` as any)}
                                     style={{
                                         borderRadius: 18,
                                         overflow: 'hidden',
@@ -178,7 +191,7 @@ const VendorAds = () => {
                                     }}
                                 >
                                     <ImageBackground
-                                        source={campaign.image}
+                                        source={campaign.cover_image_url ? { uri: campaign.cover_image_url } : require('../../assets/pictures/shop.jpeg')}
                                         style={{ width: '100%', height: '100%' }}
                                         imageStyle={{ opacity: 0.3 }}
                                     >
@@ -189,7 +202,7 @@ const VendorAds = () => {
                                             <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' }}>
                                                 <View style={{ flex: 1 }}>
                                                     <Text style={{ fontSize: 18, fontFamily: 'HelveticaNeue', color: '#fff', marginBottom: 6 }}>
-                                                        {campaign.name}
+                                                        {campaign.title}
                                                     </Text>
                                                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
                                                         <View
@@ -197,12 +210,12 @@ const VendorAds = () => {
                                                                 width: 6,
                                                                 height: 6,
                                                                 borderRadius: 3,
-                                                                backgroundColor: '#4CAF50',
+                                                                backgroundColor: campaign.status === 'active' ? '#4CAF50' : '#FF9800',
                                                                 marginRight: 6,
                                                             }}
                                                         />
                                                         <Text style={{ fontSize: 11, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.5)', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-                                                            {campaign.products} products • {campaign.budget}
+                                                            {(campaign.products?.length ?? 0)} products • {String(campaign.status || 'draft').toUpperCase()}
                                                         </Text>
                                                     </View>
                                                 </View>
@@ -215,7 +228,7 @@ const VendorAds = () => {
                                                         Impressions
                                                     </Text>
                                                     <Text style={{ fontSize: 22, fontFamily: 'HelveticaNeue-Thin', color: '#fff', marginTop: 4 }}>
-                                                        {campaign.impressions}
+                                                        {formatCompact(Number(campaign.impressions ?? 0))}
                                                     </Text>
                                                 </View>
                                                 <View style={{ flex: 1 }}>
@@ -223,7 +236,7 @@ const VendorAds = () => {
                                                         Clicks
                                                     </Text>
                                                     <Text style={{ fontSize: 22, fontFamily: 'HelveticaNeue-Thin', color: '#FF6B35', marginTop: 4 }}>
-                                                        {campaign.clicks}
+                                                        {formatCompact(Number(campaign.product_clicks ?? 0))}
                                                     </Text>
                                                 </View>
                                             </View>

@@ -42,7 +42,8 @@ export default function VendorOrdersScreen() {
     },
   });
 
-  const orders: any[] = data?.orders ?? [];
+  // Backend returns paginated result: { success, data: orders[], pagination }
+  const orders: any[] = data?.data ?? [];
 
   // Single mutation that calls the correct sub-endpoint
   const actionMutation = useMutation({
@@ -83,7 +84,7 @@ export default function VendorOrdersScreen() {
               Order #{item.id?.slice(0, 8)}
             </Text>
             <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff', fontSize: 15 }}>
-              {item.buyer?.full_name ?? item.buyer?.username ?? 'Customer'}
+              {item.profiles?.full_name ?? item.profiles?.username ?? 'Customer'}
             </Text>
             <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.35)', fontSize: 12, marginTop: 3 }}>
               {item.created_at ? new Date(item.created_at).toLocaleString() : ''}
@@ -96,21 +97,21 @@ export default function VendorOrdersScreen() {
 
         {/* Items */}
         <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: 'rgba(255,255,255,0.55)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 10 }}>
-          Items ({item.items?.length ?? 0})
+          Items ({item.order_items?.length ?? 0})
         </Text>
-        {item.items?.map((line: any) => (
+        {item.order_items?.map((line: any) => (
           <View key={line.id} style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 10 }}>
             <Image
-              source={{ uri: line.product?.images?.[0] ?? 'https://via.placeholder.com/50' }}
+              source={{ uri: line.product_image ?? 'https://via.placeholder.com/50' }}
               style={{ width: 40, height: 40, borderRadius: 8, backgroundColor: '#333' }}
               resizeMode="cover"
             />
             <View style={{ flex: 1, marginLeft: 12 }}>
               <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.9)', fontSize: 13 }} numberOfLines={1}>
-                {line.product?.name}
+                {line.product_name}
               </Text>
               <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 2 }}>
-                Qty: {line.quantity} · ${(line.price * line.quantity).toFixed(2)}
+                Qty: {line.quantity} · ${(line.unit_price * line.quantity).toFixed(2)}
               </Text>
             </View>
           </View>
@@ -212,7 +213,7 @@ export default function VendorOrdersScreen() {
           />
         </SafeAreaView>
 
-        <VendorNav active="dashboard" />
+        <VendorNav active="orders" />
       </LinearGradient>
     </View>
   );

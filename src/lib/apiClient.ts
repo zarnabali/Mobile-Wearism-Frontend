@@ -1,7 +1,55 @@
 import axios from 'axios';
 import * as SecureStore from 'expo-secure-store';
+import Constants from 'expo-constants';
 
-const BASE_URL = process.env.EXPO_PUBLIC_API_BASE_URL!;
+function resolveExpoDevHost(): string | null {
+  const candidates = [
+    (Constants as any)?.expoConfig?.hostUri,
+    (Constants as any)?.expoGoConfig?.debuggerHost,
+    (Constants as any)?.manifest2?.extra?.expoGo?.debuggerHost,
+    (Constants as any)?.manifest?.debuggerHost,
+  ];
+
+  for (const candidate of candidates) {
+    if (typeof candidate !== 'string' || candidate.trim() === '') continue;
+    const match = candidate.match(/^([^:]+)(?::\d+)?$/);
+    if (match?.[1]) return match[1];
+  }
+
+  return null;
+}
+
+function resolveBaseUrl() {
+  const raw = process.env.EXPO_PUBLIC_API_BASE_URL;
+  if (!raw) {
+    throw new Error('EXPO_PUBLIC_API_BASE_URL is not set.');
+  }
+
+  try {
+    const url = new URL(raw);
+    const isLoopback =
+      url.hostname === '127.0.0.1' ||
+      url.hostname === 'localhost' ||
+      url.hostname === '::1';
+
+    // In Expo Go on a physical device, localhost points to the phone itself.
+    // If the configured API URL is loopback, replace it with the Expo dev host
+    // so the app can reach the laptop backend over LAN.
+    if (isLoopback) {
+      const expoHost = resolveExpoDevHost();
+      if (expoHost) {
+        url.hostname = expoHost;
+        return url.toString().replace(/\/$/, '');
+      }
+    }
+
+    return raw.replace(/\/$/, '');
+  } catch {
+    return raw.replace(/\/$/, '');
+  }
+}
+
+const BASE_URL = resolveBaseUrl();
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
