@@ -9,6 +9,7 @@ import {
   ActivityIndicator,
   Keyboard,
 } from 'react-native';
+import ModeSwitchOverlay from './components/ModeSwitchOverlay';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -17,6 +18,7 @@ import { keepPreviousData, useQuery } from '@tanstack/react-query';
 import BottomNav from './components/BottomNav';
 import { apiClient } from '../src/lib/apiClient';
 import { useAuthStore } from '../src/stores/authStore';
+import { COLORS } from '../src/constants/theme';
 
 /** Masonry tile heights (same rhythm as the old static grid). */
 const EXPLORE_TILE_HEIGHTS = [220, 300, 180, 260, 240, 200, 280, 210, 250, 190, 270, 230];
@@ -117,37 +119,56 @@ const SearchScreen = () => {
       <LinearGradient colors={['rgba(60, 0, 8, 0.45)', 'rgba(60, 0, 8, 0.30)', 'rgba(60, 0, 8, 0.55)']} style={{ flex: 1 }}>
         <SafeAreaView className="flex-1">
           {/* Search Header */}
-          <View className="px-4 pt-2 pb-4">
-            <View className="flex-row items-center bg-white/10 rounded-xl px-4 py-2.5 mb-4 border border-white/10">
-              <Ionicons name="search" size={20} color="rgba(255,255,255,0.6)" />
+          <View style={{ paddingHorizontal: 16, paddingTop: 12, pb: 16 }}>
+            <View className="flex-row items-center bg-white/5 rounded-2xl px-5 py-3.5 mb-6 border border-white/5">
+              <Ionicons name="search-outline" size={22} color="rgba(255,255,255,0.4)" />
               <TextInput
                 value={rawQuery}
                 onChangeText={setRawQuery}
-                placeholder="Search"
-                placeholderTextColor="rgba(255,255,255,0.6)"
-                className="flex-1 ml-3 text-white text-[16px]"
-                style={{ paddingVertical: 0, fontFamily: 'HelveticaNeue' }}
+                placeholder="Search outfits, creators, shops..."
+                placeholderTextColor="rgba(255,255,255,0.25)"
+                className="flex-1 ml-4 text-white text-[16px] font-h-light"
+                style={{ paddingVertical: 0 }}
                 autoCorrect={false}
                 autoCapitalize="none"
                 returnKeyType="search"
               />
+              {rawQuery.length > 0 && (
+                <TouchableOpacity onPress={() => setRawQuery('')}>
+                  <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.3)" />
+                </TouchableOpacity>
+              )}
             </View>
 
-            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row">
-              {categories.map((cat, index) => (
-                <TouchableOpacity
-                  key={cat}
-                  className={`px-5 py-2 rounded-lg border border-white/10 mr-2 ${index === 0 ? 'bg-white text-black' : 'bg-transparent'}`}
-                  style={{ backgroundColor: index === 0 ? 'white' : 'rgba(255,255,255,0.05)' }}
-                >
-                  <Text
-                    className={`text-sm font-medium ${index === 0 ? 'text-black' : 'text-white'}`}
-                    style={{ fontFamily: 'HelveticaNeue-Medium' }}
+            <ScrollView horizontal showsHorizontalScrollIndicator={false} className="flex-row mb-2">
+              {categories.map((cat, index) => {
+                const isActive = index === 0 && rawQuery === ''; // Mocking first as active
+                return (
+                  <TouchableOpacity
+                    key={cat}
+                    activeOpacity={0.8}
+                    style={{ marginRight: 10, borderRadius: 14, overflow: 'hidden' }}
                   >
-                    {cat}
-                  </Text>
-                </TouchableOpacity>
-              ))}
+                    {isActive ? (
+                      <LinearGradient
+                        colors={[COLORS.primary, '#FF9F6A']}
+                        start={{ x: 0, y: 0 }}
+                        end={{ x: 1, y: 0 }}
+                        style={{ paddingHorizontal: 20, paddingVertical: 10 }}
+                      >
+                        <Text className="text-white text-[13px] font-h-bold">{cat}</Text>
+                      </LinearGradient>
+                    ) : (
+                      <View 
+                        className="px-5 py-2.5 bg-white/5 border border-white/10"
+                        style={{ borderRadius: 14 }}
+                      >
+                        <Text className="text-white/60 text-[13px] font-h-medium">{cat}</Text>
+                      </View>
+                    )}
+                  </TouchableOpacity>
+                );
+              })}
             </ScrollView>
           </View>
 
@@ -178,47 +199,47 @@ const SearchScreen = () => {
                       <TouchableOpacity
                         key={`${item.kind}-${item.id}`}
                         onPress={() => openResult(item)}
-                        activeOpacity={0.75}
-                        className="flex-row items-center py-3 border-b border-white/10"
+                        activeOpacity={0.7}
+                        className="flex-row items-center py-4 border-b border-white/5"
                       >
-                        {item.image_url ? (
-                          <Image source={{ uri: item.image_url }} className="w-11 h-11 rounded-full bg-white/10" />
-                        ) : (
-                          <View className="w-11 h-11 rounded-full bg-white/10 items-center justify-center">
-                            <Ionicons name={isVendor ? 'storefront-outline' : 'person-outline'} size={20} color="rgba(255,255,255,0.45)" />
-                          </View>
-                        )}
-                        <View className="flex-1 ml-3">
-                          <View className="flex-row items-center flex-wrap">
-                            <Text className="text-white text-[15px] mr-2" style={{ fontFamily: 'HelveticaNeue-Medium' }} numberOfLines={1}>
+                        <LinearGradient
+                          colors={isVendor ? [COLORS.primary, '#FF9F6A'] : ['rgba(255,255,255,0.1)', 'rgba(255,255,255,0.05)']}
+                          style={{ width: 50, height: 50, borderRadius: 25, padding: 1.5 }}
+                        >
+                          {item.image_url ? (
+                            <Image source={{ uri: item.image_url }} style={{ width: '100%', height: '100%', borderRadius: 23.5 }} />
+                          ) : (
+                            <View className="flex-1 rounded-full bg-black items-center justify-center">
+                              <Ionicons 
+                                name={isVendor ? 'storefront-outline' : 'person-outline'} 
+                                size={20} 
+                                color={isVendor ? COLORS.primary : 'rgba(255,255,255,0.3)'} 
+                              />
+                            </View>
+                          )}
+                        </LinearGradient>
+                        
+                        <View className="flex-1 ml-4">
+                          <View className="flex-row items-center">
+                            <Text className="text-white text-[15px] font-h-bold mr-2" numberOfLines={1}>
                               {item.name}
                             </Text>
-                            <View
-                              className="px-2 py-0.5 rounded-full border"
-                              style={{
-                                backgroundColor: isVendor ? 'rgba(255,107,53,0.15)' : 'rgba(255,255,255,0.08)',
-                                borderColor: isVendor ? 'rgba(255,107,53,0.4)' : 'rgba(255,255,255,0.15)',
-                              }}
-                            >
-                              <Text
-                                className="text-[10px]"
-                                style={{
-                                  fontFamily: 'HelveticaNeue-Bold',
-                                  color: isVendor ? '#FF6B35' : 'rgba(255,255,255,0.65)',
-                                  textTransform: 'uppercase',
-                                }}
-                              >
-                                {isVendor ? 'Vendor' : 'Member'}
-                              </Text>
-                            </View>
+                            {isVendor && (
+                              <Ionicons name="checkmark-circle" size={14} color={COLORS.primary} />
+                            )}
                           </View>
-                          {item.subtitle ? (
-                            <Text className="text-white/40 text-xs mt-0.5" style={{ fontFamily: 'HelveticaNeue' }} numberOfLines={1}>
-                              {item.subtitle}
-                            </Text>
-                          ) : null}
+                          <Text className="text-white/40 text-[12px] font-h-light mt-0.5" numberOfLines={1}>
+                            {item.subtitle || (isVendor ? 'Verified Partner' : 'Fashion Explorer')}
+                          </Text>
                         </View>
-                        <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.25)" />
+                        
+                        <View 
+                          className={`px-3 py-1 rounded-full border ${isVendor ? 'bg-primary/10 border-primary/30' : 'bg-white/5 border-white/10'}`}
+                        >
+                          <Text className={`text-[9px] font-h-bold uppercase tracking-widest ${isVendor ? 'text-primary' : 'text-white/40'}`}>
+                            {isVendor ? 'Vendor' : 'Member'}
+                          </Text>
+                        </View>
                       </TouchableOpacity>
                     );
                   })
@@ -234,9 +255,7 @@ const SearchScreen = () => {
                 </TouchableOpacity>
               </View>
             ) : exploreLoading ? (
-              <View className="py-16 items-center justify-center">
-                <ActivityIndicator color="#FF6B35" />
-              </View>
+              <ModeSwitchOverlay />
             ) : explorePosts.length === 0 ? (
               <View className="py-12 px-6 items-center">
                 <Text className="text-white/45 text-center text-[15px]" style={{ fontFamily: 'HelveticaNeue' }}>
@@ -244,20 +263,20 @@ const SearchScreen = () => {
                 </Text>
               </View>
             ) : (
-              <View className="flex-row px-2">
+              <View className="flex-row px-4">
                 {/* Left Column */}
-                <View className="flex-1 mr-1">
+                <View className="flex-1 mr-2">
                   {leftColumn.map((item: any) =>
                     item.displayUri ? (
                       <TouchableOpacity
                         key={item.id}
                         activeOpacity={0.9}
-                        className="mb-2"
+                        style={{ marginBottom: 16, borderRadius: 20, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)' }}
                         onPress={() => router.push(`/social/post-detail?id=${encodeURIComponent(item.id)}` as any)}
                       >
                         <Image
                           source={{ uri: item.displayUri }}
-                          style={{ width: '100%', height: item.tileHeight, borderRadius: 12 }}
+                          style={{ width: '100%', height: item.tileHeight }}
                           resizeMode="cover"
                         />
                       </TouchableOpacity>
@@ -266,7 +285,7 @@ const SearchScreen = () => {
                 </View>
 
                 {/* Right Column */}
-                <View className="flex-1 ml-1">
+                <View className="flex-1 ml-2">
                   {rightColumn.map((item: any) => {
                     const h = hashString(String(item.id));
                     if (!item.displayUri) return null;
@@ -274,24 +293,22 @@ const SearchScreen = () => {
                       <TouchableOpacity
                         key={item.id}
                         activeOpacity={0.9}
-                        className="mb-2"
+                        style={{ marginBottom: 16, borderRadius: 20, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)' }}
                         onPress={() => router.push(`/social/post-detail?id=${encodeURIComponent(item.id)}` as any)}
                       >
                         <Image
                           source={{ uri: item.displayUri }}
-                          style={{ width: '100%', height: item.tileHeight, borderRadius: 12 }}
+                          style={{ width: '100%', height: item.tileHeight }}
                           resizeMode="cover"
                         />
-                        {h % 3 === 0 && (
-                          <View className="absolute top-3 right-3">
-                            <Ionicons name="copy-outline" size={20} color="white" />
-                          </View>
-                        )}
-                        {h % 5 === 0 && (
-                          <View className="absolute top-3 right-3">
-                            <Ionicons name="play-outline" size={24} color="white" />
-                          </View>
-                        )}
+                        <View className="absolute bottom-4 left-4 flex-row items-center">
+                          <Ionicons 
+                            name={h % 3 === 0 ? "copy" : "play"} 
+                            size={14} 
+                            color="white" 
+                            style={{ opacity: 0.8 }} 
+                          />
+                        </View>
                       </TouchableOpacity>
                     );
                   })}

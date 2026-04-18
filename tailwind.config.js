@@ -7,7 +7,23 @@ module.exports = {
   ],
   presets: [require("nativewind/preset")],
   theme: {
-    extend: {},
+    extend: {
+      colors: {
+        primary: "#FF6B35",
+        secondary: "#3C0008",
+        accent: "#FF6B35",
+      },
+      fontFamily: {
+        sans: ['HelveticaNeue', 'Helvetica Neue', 'sans-serif'],
+        'h-light': ['HelveticaNeue-Light'],
+        'h-bold': ['HelveticaNeue-Bold'],
+        'h-medium': ['HelveticaNeue-Medium'],
+        'h-heavy': ['HelveticaNeue-Heavy'],
+        'h-black': ['HelveticaNeue-Black'],
+        'h-thin': ['HelveticaNeue-Thin'],
+        'h-ultralight': ['HelveticaNeue-UltraLight'],
+      }
+    },
   },
   plugins: [],
 }

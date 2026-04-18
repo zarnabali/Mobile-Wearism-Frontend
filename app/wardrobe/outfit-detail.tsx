@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { apiClient } from '../../src/lib/apiClient';
+import ModeSwitchOverlay from '../components/ModeSwitchOverlay';
 
 function OutfitItemThumbnail({ uri }: { uri?: string | null }) {
   const [loaded, setLoaded] = useState(false);
@@ -97,28 +98,19 @@ export default function OutfitDetailScreen() {
     );
   };
 
-  if (isLoading) {
-    return (
-      <View className="flex-1 bg-black justify-center items-center">
-        <ActivityIndicator color="#FF6B35" size="large" />
-      </View>
-    );
-  }
-
-  if (!outfit) {
-    return (
-      <View className="flex-1 bg-black justify-center items-center">
-        <Text className="text-white">Outfit not found.</Text>
-        <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 999 }}>
-          <Text className="text-white">Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   return (
     <View className="flex-1 bg-black">
-      <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
+      {isLoading ? (
+        <ModeSwitchOverlay />
+      ) : !outfit ? (
+        <View className="flex-1 bg-black justify-center items-center">
+          <Text className="text-white">Outfit not found.</Text>
+          <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 999 }}>
+            <Text className="text-white">Back</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
         <SafeAreaView className="flex-1" edges={['top']}>
           {/* Header */}
           <View className="flex-row items-center justify-between px-5 border-b border-white/10" style={{ paddingVertical: 14 }}>
@@ -218,6 +210,7 @@ export default function OutfitDetailScreen() {
           </ScrollView>
         </SafeAreaView>
       </LinearGradient>
+      )}
     </View>
   );
 }

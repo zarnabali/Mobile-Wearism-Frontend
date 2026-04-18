@@ -12,6 +12,7 @@ import BottomNav from './components/BottomNav';
 import { apiClient } from '../src/lib/apiClient';
 import { Skeleton } from '../src/components/Skeleton';
 import { EmptyState } from '../src/components/EmptyState';
+import ModeSwitchOverlay from './components/ModeSwitchOverlay';
 
 // Slot display config
 const SLOT_CONFIG: Record<string, { label: string; icon: string }> = {
@@ -343,13 +344,7 @@ const WardrobeScreen = () => {
                 </Text>
 
                 {itemsLoading ? (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -8, marginBottom: 28, gap: 0 }}>
-                    {Array(4).fill(0).map((_, i) => (
-                      <View key={i} style={{ width: '50%', paddingHorizontal: 8, marginBottom: 16 }}>
-                        <Skeleton className="w-full h-[180px] rounded-3xl" />
-                      </View>
-                    ))}
-                  </View>
+                  <ModeSwitchOverlay />
                 ) : (
                   <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -8, marginBottom: 28 }}>
                     {slotMeta.map(({ slot, count, thumb }) => {
@@ -570,13 +565,7 @@ const WardrobeScreen = () => {
               renderItem={({ item }) => <OutfitCard outfit={item} />}
               ListEmptyComponent={
                 outfitsLoading ? (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 6 }}>
-                    {Array(4).fill(0).map((_, i) => (
-                      <View key={i} style={{ width: '50%', padding: 6 }}>
-                        <Skeleton className="w-full aspect-square rounded-2xl" />
-                      </View>
-                    ))}
-                  </View>
+                  <ModeSwitchOverlay />
                 ) : (
                   <EmptyState
                     icon="shirt-outline"

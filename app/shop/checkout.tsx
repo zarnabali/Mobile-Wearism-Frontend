@@ -10,6 +10,7 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { apiClient } from '../../src/lib/apiClient';
 import { useCartStore } from '../../src/stores/cartStore';
+import { COLORS } from '../../src/constants/theme';
 
 export default function CheckoutScreen() {
   const insets = useSafeAreaInsets();
@@ -96,13 +97,18 @@ export default function CheckoutScreen() {
       <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           {/* Header */}
-          <View className="px-5 py-4 border-b border-white/10 flex-row items-center z-10">
-            <TouchableOpacity onPress={() => router.back()} className="mr-4">
-              <Ionicons name="arrow-back" size={24} color="white" />
+          <View className="px-6 py-6 flex-row items-center">
+            <TouchableOpacity
+              onPress={() => router.back()}
+              activeOpacity={0.7}
+              style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Ionicons name="chevron-back" size={22} color="white" />
             </TouchableOpacity>
-            <Text className="text-white text-xl font-bold tracking-tight" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
-              Checkout
-            </Text>
+            <View className="ml-5">
+              <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.4)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 2 }}>Secure Payment</Text>
+              <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 24, marginTop: 1 }}>Checkout</Text>
+            </View>
           </View>
 
           <KeyboardAvoidingView
@@ -114,7 +120,7 @@ export default function CheckoutScreen() {
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
             >
-              
+
               {/* Multi-vendor notice */}
               {isMultiVendor && (
                 <View className="bg-[#FF6B35]/20 border border-[#FF6B35]/40 rounded-xl p-4 mb-6 flex-row items-start">
@@ -125,132 +131,127 @@ export default function CheckoutScreen() {
                 </View>
               )}
 
-              {/* Order Summary list */}
-              <View className="bg-white/5 rounded-2xl p-4 mb-6 border border-white/10">
-                <Text className="text-white/60 uppercase text-xs font-bold tracking-widest mb-4" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
+              {/* Order Summary */}
+              <View style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 24, padding: 24, marginBottom: 32 }}>
+                <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: 'rgba(255,255,255,0.3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 20 }}>
                   Order Summary
                 </Text>
                 {items.map((item: any, i: number) => (
-                  <View key={item.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 10, borderTopWidth: i !== 0 ? 0.5 : 0, borderTopColor: 'rgba(255,255,255,0.07)' }}>
+                  <View key={item.id} style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', paddingVertical: 12, borderTopWidth: i !== 0 ? 0.5 : 0, borderTopColor: 'rgba(255,255,255,0.05)' }}>
                     <View style={{ flex: 1, paddingRight: 16 }}>
-                      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff', fontSize: 14 }} numberOfLines={1}>
+                      <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.9)', fontSize: 14 }} numberOfLines={1}>
                         {item.product?.name}
                       </Text>
-                      <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: 'rgba(255,255,255,0.4)', fontSize: 10, textTransform: 'uppercase', marginTop: 3 }}>
-                        {item.product?.vendor?.brand_name || 'Vendor'} · Qty {item.quantity}
+                      <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 4 }}>
+                        Qty {item.quantity}
                       </Text>
                     </View>
-                    <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#FF6B35', fontSize: 14 }}>
-                      ${(item.product?.price * item.quantity).toFixed(2)}
+                    <Text style={{ fontFamily: 'HelveticaNeue-light', color: '#fff', fontSize: 14 }}>
+                      ${(item.product?.price * item.quantity).toFixed(0)}
                     </Text>
                   </View>
                 ))}
-                
-                <View className="flex-row justify-between pt-4 mt-2 border-t border-white/10">
-                  <Text className="text-white font-bold" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>Subtotal</Text>
-                  <Text className="text-white font-bold" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>${subtotal.toFixed(2)}</Text>
+
+                <View className="flex-row justify-between pt-6 mt-2 border-t border-white/5">
+                  <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff', fontSize: 16 }}>Subtotal</Text>
+                  <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff', fontSize: 16 }}>${subtotal.toFixed(0)}</Text>
                 </View>
               </View>
 
               {/* Delivery Details Form */}
-              <Text className="text-white text-lg font-bold mb-4" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
+              <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: 'rgba(255,255,255,0.4)', fontSize: 12, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 24 }}>
                 Delivery Details
               </Text>
-              
-              <View className="mb-4">
-                <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.5)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Address *</Text>
+
+              <View className="mb-6">
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.3)', fontSize: 11, marginBottom: 8, marginLeft: 4 }}>Full Address</Text>
                 <TextInput
                   value={address}
                   onChangeText={setAddress}
-                  placeholder="Street address, building, apartment"
-                  placeholderTextColor="rgba(255,255,255,0.35)"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, color: '#fff', fontFamily: 'HelveticaNeue', fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
-                />
-              </View>
-
-              <View className="mb-4">
-                <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.5)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>City *</Text>
-                <TextInput
-                  value={city}
-                  onChangeText={setCity}
-                  placeholder="Lahore, Karachi, etc."
-                  placeholderTextColor="rgba(255,255,255,0.35)"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, color: '#fff', fontFamily: 'HelveticaNeue', fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
-                />
-              </View>
-
-              <View className="mb-4">
-                <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.5)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Phone *</Text>
-                <TextInput
-                  value={phone}
-                  onChangeText={setPhone}
-                  placeholder="Mobile number for delivery"
-                  placeholderTextColor="rgba(255,255,255,0.35)"
-                  keyboardType="phone-pad"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, color: '#fff', fontFamily: 'HelveticaNeue', fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)' }}
+                  placeholder="Street, Building, Apartment"
+                  placeholderTextColor="rgba(255,255,255,0.15)"
+                  className="bg-white/5 border border-white/5 rounded-2xl px-5 py-4 text-white font-h-light text-[15px]"
                 />
               </View>
 
               <View className="mb-6">
-                <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.5)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 8 }}>Delivery Notes (Optional)</Text>
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.3)', fontSize: 11, marginBottom: 8, marginLeft: 4 }}>City</Text>
                 <TextInput
-                  value={notes}
-                  onChangeText={setNotes}
-                  placeholder="Any special instructions for the rider…"
-                  placeholderTextColor="rgba(255,255,255,0.35)"
-                  multiline
-                  numberOfLines={3}
-                  textAlignVertical="top"
-                  style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13, color: '#fff', fontFamily: 'HelveticaNeue', fontSize: 15, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', minHeight: 88 }}
+                  value={city}
+                  onChangeText={setCity}
+                  placeholder="Enter your city"
+                  placeholderTextColor="rgba(255,255,255,0.15)"
+                  className="bg-white/5 border border-white/5 rounded-2xl px-5 py-4 text-white font-h-light text-[15px]"
                 />
               </View>
 
-              {/* Payment Info */}
-              <Text className="text-white text-lg font-bold mb-4" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
+              <View className="mb-6">
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.3)', fontSize: 11, marginBottom: 8, marginLeft: 4 }}>Phone Number</Text>
+                <TextInput
+                  value={phone}
+                  onChangeText={setPhone}
+                  placeholder="For delivery updates"
+                  placeholderTextColor="rgba(255,255,255,0.15)"
+                  keyboardType="phone-pad"
+                  className="bg-white/5 border border-white/5 rounded-2xl px-5 py-4 text-white font-h-light text-[15px]"
+                />
+              </View>
+
+              <View className="mb-10">
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.3)', fontSize: 11, marginBottom: 8, marginLeft: 4 }}>Delivery Notes (Optional)</Text>
+                <TextInput
+                  value={notes}
+                  onChangeText={setNotes}
+                  placeholder="Any instructions for the rider?"
+                  placeholderTextColor="rgba(255,255,255,0.15)"
+                  multiline
+                  numberOfLines={3}
+                  textAlignVertical="top"
+                  className="bg-white/5 border border-white/5 rounded-2xl px-5 py-4 text-white font-h-light text-[15px] min-h-[100px]"
+                />
+              </View>
+
+              {/* Payment Method */}
+              <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: 'rgba(255,255,255,0.4)', fontSize: 12, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 20 }}>
                 Payment Method
               </Text>
-              <View className="bg-white/5 rounded-xl p-4 border border-white/10 flex-row items-center mb-8">
-                <Ionicons name="cash-outline" size={24} color="#4ade80" />
-                <View className="ml-3 flex-1">
-                  <Text className="text-white font-medium" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }}>Cash on Delivery</Text>
-                  <Text className="text-white/50 text-xs mt-1" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}>Pay securely when your package arrives at your door.</Text>
+              <View className="bg-white/5 rounded-2xl p-5 border border-white/5 flex-row items-center mb-10">
+                <View className="w-12 h-12 rounded-full bg-green-500/10 items-center justify-center">
+                  <Ionicons name="cash-outline" size={24} color="#4ade80" />
                 </View>
-                <Ionicons name="checkmark-circle" size={24} color="#FF6B35" />
+                <View className="ml-4 flex-1">
+                  <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 15 }}>Cash on Delivery</Text>
+                  <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.3)', fontSize: 12, marginTop: 2 }}>Secure payment at your doorstep</Text>
+                </View>
+                <Ionicons name="checkmark-circle" size={22} color={COLORS.primary} />
               </View>
 
             </ScrollView>
           </KeyboardAvoidingView>
 
-          {/* Sticky Submit Button (outside KeyboardAvoidingView) */}
-          <View
-            style={{
-              backgroundColor: 'rgba(0,0,0,0.95)',
-              paddingTop: 16,
-              paddingHorizontal: 20,
-              paddingBottom: insets.bottom || 16,
-              borderTopWidth: 1,
-              borderTopColor: 'rgba(255,255,255,0.10)',
-            }}
-          >
-            <TouchableOpacity
-              onPress={() => checkoutMutation.mutate()}
-              disabled={!canProceed || checkoutMutation.isPending}
-              className={`w-full h-14 rounded-xl items-center mb-2 flex-row justify-center ${
-                canProceed ? 'bg-[#FF6B35] shadow-lg shadow-orange-500/20' : 'bg-white/10'
-              }`}
-              activeOpacity={0.8}
-            >
-              {checkoutMutation.isPending ? (
-                <ActivityIndicator color="white" style={{ marginRight: 8 }} />
-              ) : null}
-              <Text
-                className="font-bold text-lg"
-                style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold', color: canProceed ? '#fff' : 'rgba(255,255,255,0.4)' }}
+          {/* CTA Bar */}
+          <SafeAreaView edges={['bottom']} className="absolute bottom-0 w-full">
+            <View className="px-6 pb-8 pt-4 bg-black/40 backdrop-blur-xl border-t border-white/5">
+              <TouchableOpacity
+                onPress={() => checkoutMutation.mutate()}
+                disabled={!canProceed || checkoutMutation.isPending}
+                activeOpacity={0.9}
+                className={`py-5 rounded-2xl flex-row items-center justify-center ${!canProceed ? 'bg-white/5' : 'bg-[#FF6B35]'}`}
+                style={canProceed ? { shadowColor: '#FF6B35', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 5 } : {}}
               >
-                Place Order
-              </Text>
-            </TouchableOpacity>
-          </View>
+                {checkoutMutation.isPending ? (
+                  <ActivityIndicator color="white" />
+                ) : (
+                  <>
+                    <Ionicons name="shield-checkmark-outline" size={20} color="white" style={{ marginRight: 8 }} />
+                    <Text style={{ fontFamily: 'HelveticaNeue-Light', color: !canProceed ? 'rgba(255,255,255,0.2)' : 'white', fontSize: 16 }}>
+                      PLACE ORDER
+                    </Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
         </SafeAreaView>
       </LinearGradient>
     </View>

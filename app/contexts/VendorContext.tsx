@@ -21,6 +21,7 @@ interface VendorContextType {
     setVendorMode: (mode: boolean) => void;
     updateVendorData: (data: Partial<VendorData>) => void;
     isLoadingVendor: boolean;
+    isSwitching: boolean;
 }
 
 const defaultVendorData: VendorData = {
@@ -39,6 +40,7 @@ const VendorContext = createContext<VendorContextType | undefined>(undefined);
 
 export const VendorProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
     const [isVendorMode, setIsVendorMode] = useState(false);
+    const [isSwitching, setIsSwitching] = useState(false);
     const isSignedIn = useAuthStore((s) => s.isSignedIn);
 
     const { data: apiVendor, isLoading: isLoadingVendor } = useQuery({
@@ -63,7 +65,15 @@ export const VendorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
           }
         : defaultVendorData;
 
-    const setVendorMode = (mode: boolean) => setIsVendorMode(mode);
+    const setVendorMode = (mode: boolean) => {
+        setIsSwitching(true);
+        setTimeout(() => {
+            setIsVendorMode(mode);
+            setTimeout(() => {
+                setIsSwitching(false);
+            }, 800); // Keep loading a bit after state change for smoothness
+        }, 1200); // 1.2s of "Powered By"
+    };
 
     const updateVendorData = (_data: Partial<VendorData>) => {
         // Local updates are handled via API mutations; invalidate ['vendor-me'] after changes
@@ -71,7 +81,7 @@ export const VendorProvider: React.FC<{ children: React.ReactNode }> = ({ childr
 
     return (
         <VendorContext.Provider
-            value={{ isVendorMode, vendorData, setVendorMode, updateVendorData, isLoadingVendor }}
+            value={{ isVendorMode, vendorData, setVendorMode, updateVendorData, isLoadingVendor, isSwitching }}
         >
             {children}
         </VendorContext.Provider>

@@ -12,6 +12,7 @@ import { apiClient } from '../../src/lib/apiClient';
 import * as ImagePicker from 'expo-image-picker';
 import { Skeleton } from '../../src/components/Skeleton';
 import { useAuthStore } from '../../src/stores/authStore';
+import ModeSwitchOverlay from '../components/ModeSwitchOverlay';
 
 const ProfileScreen = () => {
   const params = useLocalSearchParams<{ id?: string }>();
@@ -75,19 +76,11 @@ const ProfileScreen = () => {
   };
 
   if (shouldRedirectToPublic) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#FF6B35" />
-      </View>
-    );
+    return <ModeSwitchOverlay />;
   }
 
   if (isLoading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#FF6B35" />
-      </View>
-    );
+    return <ModeSwitchOverlay />;
   }
 
   return (

@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, Image, ScrollView, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '../../src/constants/theme';
 
 export interface StoryStripItem {
   id: string;
@@ -21,27 +22,29 @@ const StoriesStrip: React.FC<StoriesStripProps> = ({ stories, onAddStory }) => (
   <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-4">
     <TouchableOpacity
       onPress={onAddStory}
-      className="mr-3 items-center"
+      className="mr-4 items-center"
       activeOpacity={0.7}
     >
       <View
         style={{
-          width: 72,
-          height: 72,
-          borderRadius: 18,
-          backgroundColor: 'rgba(255,255,255,0.1)',
-          borderWidth: 2,
-          borderColor: 'rgba(255,255,255,0.2)',
-          borderStyle: 'dashed',
+          width: 68,
+          height: 68,
+          borderRadius: 34,
+          backgroundColor: 'rgba(255,255,255,0.05)',
+          borderWidth: 1,
+          borderColor: 'rgba(255,255,255,0.15)',
           justifyContent: 'center',
           alignItems: 'center',
+          position: 'relative'
         }}
       >
-        <Ionicons name="add-circle" size={28} color="#FF6B35" />
+        <Ionicons name="add" size={24} color="#fff" />
+        <View style={{ position: 'absolute', bottom: -2, right: -2, backgroundColor: COLORS.primary, borderRadius: 10, width: 20, height: 20, alignItems: 'center', justifyContent: 'center', borderWidth: 2, borderColor: '#000' }}>
+           <Ionicons name="add" size={14} color="#fff" />
+        </View>
       </View>
       <Text
-        className="text-white/90 text-xs mt-2 font-semibold"
-        style={{ fontFamily: 'HelveticaNeue-Bold' }}
+        className="text-white/60 text-[11px] mt-2 font-h-light"
       >
         Your Story
       </Text>
@@ -51,29 +54,29 @@ const StoriesStrip: React.FC<StoriesStripProps> = ({ stories, onAddStory }) => (
       <TouchableOpacity
         key={story.id}
         onPress={story.onPress}
-        className="mr-3 items-center"
+        className="mr-4 items-center"
         activeOpacity={0.7}
       >
         <LinearGradient
-          colors={story.seen ? ['rgba(255,255,255,0.3)', 'rgba(255,255,255,0.2)'] : ['#FF6B35', '#FF8C61', '#3C0008']}
+          colors={story.seen ? ['rgba(255,255,255,0.2)', 'rgba(255,255,255,0.1)'] : ['#FF6B35', '#FF9F6A', '#FF3D00']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 1 }}
           style={{
-            width: 72,
-            height: 72,
-            borderRadius: 18,
-            padding: 3,
+            width: 68,
+            height: 68,
+            borderRadius: 34,
+            padding: 2.5,
           }}
         >
           <View
             style={{
               width: '100%',
               height: '100%',
-              borderRadius: 15,
-              borderWidth: 3,
+              borderRadius: 32,
+              borderWidth: 2,
               borderColor: '#000',
               overflow: 'hidden',
-              backgroundColor: 'rgba(0,0,0,0.35)',
+              backgroundColor: '#111',
             }}
           >
             {story.coverUri ? (
@@ -84,14 +87,13 @@ const StoriesStrip: React.FC<StoriesStripProps> = ({ stories, onAddStory }) => (
               />
             ) : (
               <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-                <Ionicons name="person" size={32} color="rgba(255,255,255,0.55)" />
+                <Ionicons name="person" size={28} color="rgba(255,255,255,0.3)" />
               </View>
             )}
           </View>
         </LinearGradient>
         <Text
-          className="text-white/80 text-xs mt-2"
-          style={{ fontFamily: 'HelveticaNeue' }}
+          className="text-white/70 text-[11px] mt-2 font-h-light"
           numberOfLines={1}
         >
           {story.name}

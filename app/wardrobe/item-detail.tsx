@@ -9,6 +9,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { apiClient } from '../../src/lib/apiClient';
+import ModeSwitchOverlay from '../components/ModeSwitchOverlay';
 
 // ─── Sub-component: AI Tag ────────────────────────────────────────────────
 function AITag({ label }: { label: string }) {
@@ -161,28 +162,19 @@ export default function ItemDetailScreen() {
     );
   };
 
-  if (isLoading) {
-    return (
-      <View className="flex-1 bg-black justify-center items-center">
-        <ActivityIndicator color="#FF6B35" size="large" />
-      </View>
-    );
-  }
-
-  if (!item) {
-    return (
-      <View className="flex-1 bg-black justify-center items-center">
-        <Text className="text-white/60">Item not found.</Text>
-        <TouchableOpacity onPress={() => router.back()} className="mt-4 px-6 h-14 bg-white/10 rounded-full">
-          <Text className="text-white">Go Back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   return (
     <View className="flex-1 bg-black">
-      <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
+      {isLoading ? (
+        <ModeSwitchOverlay />
+      ) : !item ? (
+        <View className="flex-1 bg-black justify-center items-center">
+          <Text className="text-white/60">Item not found.</Text>
+          <TouchableOpacity onPress={() => router.back()} className="mt-4 px-6 h-14 bg-white/10 rounded-full">
+            <Text className="text-white">Go Back</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
         <ScrollView contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false} bounces={false}>
           {/* Header Image */}
           <View className="h-[450px] w-full relative">
@@ -424,6 +416,7 @@ export default function ItemDetailScreen() {
           </View>
         </ScrollView>
       </LinearGradient>
+      )}
     </View>
   );
 }

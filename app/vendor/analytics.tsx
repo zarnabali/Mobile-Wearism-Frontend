@@ -6,6 +6,7 @@ import { Ionicons } from '@expo/vector-icons';
 import VendorNav from '../components/VendorNav';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../src/lib/apiClient';
+import ModeSwitchOverlay from '../components/ModeSwitchOverlay';
 
 type Overview = {
   revenue_pkr?: number;
@@ -65,30 +66,33 @@ const VendorAnalytics = () => {
   const overviewStats = useMemo(
     () => [
       {
-        label: 'Total sales',
+        label: 'Total revenue',
         value: formatPkr(Number(overview.revenue_pkr ?? 0)),
-        sub: `${Number(overview.orders_count ?? 0)} orders (excl. cancelled)`,
+        sub: `${Number(overview.orders_count ?? 0)} completed orders`,
         icon: 'cash-outline' as const,
+        accent: '#10B981', // Emerald for money
       },
       {
-        label: 'Campaign impressions',
+        label: 'Campaign reach',
         value: formatCompact(Number(overview.campaign_impressions ?? 0)),
-        sub: `${formatCompact(Number(overview.campaign_clicks ?? 0))} product taps`,
+        sub: `${formatCompact(Number(overview.campaign_clicks ?? 0))} customer taps`,
         icon: 'eye-outline' as const,
+        accent: '#3B82F6', // Blue for reach
       },
       {
-        label: 'Click-through rate',
+        label: 'Conversion rate',
         value: pct(Number(overview.ctr ?? 0)),
         sub: `Opens: ${formatCompact(Number(overview.campaign_opens ?? 0))}`,
         icon: 'trending-up-outline' as const,
+        accent: '#F59E0B', // Amber for performance
       },
     ],
     [overview],
   );
 
   const typeMeta = (t: string) => {
-    if (t === 'ai') return { label: 'AI campaigns', icon: 'sparkles' as const, accent: '#FFD700', border: 'rgba(255,215,0,0.2)', bg: 'rgba(255,215,0,0.1)' };
-    if (t === 'custom') return { label: 'Your campaigns', icon: 'megaphone' as const, accent: '#FF6B35', border: 'rgba(255,255,255,0.08)', bg: 'rgba(255,255,255,0.05)' };
+    if (t === 'ai') return { label: 'AI intelligence', icon: 'sparkles' as const, accent: '#FFD700', border: 'rgba(255,215,0,0.15)', bg: 'rgba(255,215,0,0.05)' };
+    if (t === 'custom') return { label: 'Standard', icon: 'megaphone' as const, accent: '#FF6B35', border: 'rgba(255,107,53,0.15)', bg: 'rgba(255,107,53,0.05)' };
     return { label: t || 'Campaigns', icon: 'pricetag' as const, accent: '#FF6B35', border: 'rgba(255,255,255,0.08)', bg: 'rgba(255,255,255,0.05)' };
   };
 
@@ -96,96 +100,90 @@ const VendorAnalytics = () => {
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
-      <LinearGradient
-        colors={['rgba(60, 0, 8, 0.45)', 'rgba(60, 0, 8, 0.30)', 'rgba(60, 0, 8, 0.55)']}
-        style={{ flex: 1 }}
-      >
-        <SafeAreaView style={{ flex: 1 }}>
-          <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 16 }}>
+      {isLoading ? (
+        <ModeSwitchOverlay />
+      ) : (
+        <LinearGradient
+            colors={['rgba(30, 0, 4, 1)', 'rgba(0, 0, 0, 1)']}
+            style={{ flex: 1 }}
+        >
+            <SafeAreaView style={{ flex: 1 }}>
+          <View style={{ paddingHorizontal: 24, paddingTop: 20, paddingBottom: 24 }}>
             <Text
               style={{
-                fontSize: 13,
+                fontSize: 11,
                 fontFamily: 'HelveticaNeue-Light',
-                color: 'rgba(255,255,255,0.5)',
-                letterSpacing: 1.5,
+                color: 'rgba(255,255,255,0.7)',
+                letterSpacing: 2,
                 textTransform: 'uppercase',
               }}
             >
-              Performance
+              Business Insights
             </Text>
-            <Text style={{ fontSize: 32, fontFamily: 'HelveticaNeue-Thin', color: '#fff', marginTop: 2 }}>Analytics</Text>
+            <Text style={{ fontSize: 36, fontFamily: 'HelveticaNeue-Thin', color: '#fff', marginTop: 4, letterSpacing: -0.5 }}>Analytics</Text>
           </View>
 
-          {isLoading ? (
-            <View style={{ flex: 1, justifyContent: 'center', alignItems: 'center', paddingBottom: 100 }}>
-              <ActivityIndicator color="#FF6B35" />
-            </View>
-          ) : isError ? (
-            <View style={{ paddingHorizontal: 20, paddingTop: 24 }}>
-              <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.7)' }}>
-                Could not load analytics. Check your connection and try again.
+          {isError ? (
+            <View style={{ paddingHorizontal: 24, paddingTop: 24 }}>
+              <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.5)' }}>
+                Could not load analytics. Check your connection.
               </Text>
             </View>
           ) : (
-            <ScrollView contentContainerStyle={{ paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
-              <View style={{ paddingHorizontal: 20, marginBottom: 32 }}>
-                <Text
-                  style={{
-                    fontSize: 13,
-                    fontFamily: 'HelveticaNeue-Light',
-                    color: 'rgba(255,255,255,0.5)',
-                    letterSpacing: 1.5,
-                    textTransform: 'uppercase',
-                    marginBottom: 16,
-                  }}
-                >
-                  Overview
-                </Text>
+            <ScrollView contentContainerStyle={{ paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
+              <View style={{ paddingHorizontal: 24, marginBottom: 40 }}>
                 {overviewStats.map((stat, index) => (
                   <View
                     key={index}
                     style={{
-                      backgroundColor: 'rgba(255,255,255,0.05)',
-                      borderRadius: 16,
+                      backgroundColor: 'rgba(255,255,255,0.03)',
+                      borderRadius: 28,
                       borderWidth: 1,
-                      borderColor: 'rgba(255,255,255,0.08)',
-                      padding: 18,
-                      marginBottom: 12,
+                      borderColor: 'rgba(255,255,255,0.05)',
+                      padding: 24,
+                      marginBottom: 16,
                       flexDirection: 'row',
                       alignItems: 'center',
                     }}
                   >
                     <View
                       style={{
-                        width: 44,
-                        height: 44,
-                        borderRadius: 12,
-                        backgroundColor: 'rgba(255,255,255,0.08)',
+                        width: 52,
+                        height: 52,
+                        borderRadius: 18,
+                        backgroundColor: `${stat.accent}15`,
                         justifyContent: 'center',
                         alignItems: 'center',
-                        marginRight: 14,
+                        marginRight: 18,
                       }}
                     >
-                      <Ionicons name={stat.icon} size={22} color="rgba(255,255,255,0.7)" />
+                      <Ionicons name={stat.icon} size={24} color={stat.accent} />
                     </View>
                     <View style={{ flex: 1 }}>
                       <Text
                         style={{
-                          fontSize: 11,
+                          fontSize: 10,
                           fontFamily: 'HelveticaNeue-Light',
-                          color: 'rgba(255,255,255,0.5)',
+                          color: 'rgba(255,255,255,0.7)',
                           textTransform: 'uppercase',
-                          letterSpacing: 0.5,
+                          letterSpacing: 1,
                         }}
                       >
                         {stat.label}
                       </Text>
-                      <Text style={{ fontSize: 26, fontFamily: 'HelveticaNeue-Thin', color: '#fff', marginTop: 2 }}>{stat.value}</Text>
+                      <Text style={{ 
+                        fontSize: 28, 
+                        fontFamily: 'HelveticaNeue-Thin', 
+                        color: stat.label.toLowerCase().includes('revenue') ? stat.accent : '#fff', 
+                        marginTop: 2 
+                      }}>
+                        {stat.value}
+                      </Text>
                       <Text
                         style={{
                           fontSize: 12,
                           fontFamily: 'HelveticaNeue-Light',
-                          color: 'rgba(255,255,255,0.4)',
+                          color: 'rgba(255,255,255,0.6)',
                           marginTop: 4,
                         }}
                       >
@@ -196,41 +194,32 @@ const VendorAnalytics = () => {
                 ))}
               </View>
 
-              <View style={{ paddingHorizontal: 20, marginBottom: 32 }}>
+              <View style={{ paddingHorizontal: 24, marginBottom: 40 }}>
                 <Text
                   style={{
-                    fontSize: 13,
+                    fontSize: 11,
                     fontFamily: 'HelveticaNeue-Light',
-                    color: 'rgba(255,255,255,0.5)',
+                    color: 'rgba(255,255,255,0.7)',
                     letterSpacing: 1.5,
                     textTransform: 'uppercase',
-                    marginBottom: 16,
+                    marginBottom: 20,
                   }}
                 >
-                  Product performance
-                </Text>
-                <Text
-                  style={{
-                    fontSize: 12,
-                    fontFamily: 'HelveticaNeue-Light',
-                    color: 'rgba(255,255,255,0.35)',
-                    marginBottom: 14,
-                  }}
-                >
-                  From campaign placements: impressions, taps, and paid orders (COD pipeline).
+                  Product Velocity
                 </Text>
                 {productsWithActivity.length === 0 ? (
                   <View
                     style={{
-                      backgroundColor: 'rgba(255,255,255,0.04)',
-                      borderRadius: 16,
+                      backgroundColor: 'rgba(255,255,255,0.02)',
+                      borderRadius: 24,
                       borderWidth: 1,
-                      borderColor: 'rgba(255,255,255,0.08)',
-                      padding: 18,
+                      borderColor: 'rgba(255,255,255,0.04)',
+                      padding: 24,
+                      alignItems: 'center'
                     }}
                   >
-                    <Text style={{ fontSize: 14, fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.65)' }}>
-                      No campaign activity on products yet.
+                    <Text style={{ fontSize: 14, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.3)' }}>
+                      No activity to display yet.
                     </Text>
                   </View>
                 ) : (
@@ -238,63 +227,27 @@ const VendorAnalytics = () => {
                     <View
                       key={product.id}
                       style={{
-                        backgroundColor: 'rgba(255,255,255,0.05)',
-                        borderRadius: 16,
+                        backgroundColor: 'rgba(255,255,255,0.03)',
+                        borderRadius: 24,
                         borderWidth: 1,
-                        borderColor: 'rgba(255,255,255,0.08)',
-                        padding: 18,
+                        borderColor: 'rgba(255,255,255,0.05)',
+                        padding: 20,
                         marginBottom: 12,
                       }}
                     >
-                      <Text style={{ fontSize: 16, fontFamily: 'HelveticaNeue', color: '#fff', marginBottom: 14 }}>{product.name}</Text>
-                      <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
-                        <View style={{ minWidth: '45%' }}>
-                          <Text
-                            style={{
-                              fontSize: 10,
-                              fontFamily: 'HelveticaNeue-Light',
-                              color: 'rgba(255,255,255,0.5)',
-                              textTransform: 'uppercase',
-                              letterSpacing: 0.5,
-                            }}
-                          >
-                            Impressions
-                          </Text>
-                          <Text style={{ fontSize: 20, fontFamily: 'HelveticaNeue-Thin', color: '#fff', marginTop: 4 }}>
-                            {formatCompact(Number(product.impressions ?? 0))}
-                          </Text>
+                      <Text style={{ fontSize: 16, fontFamily: 'HelveticaNeue-Light', color: '#fff', marginBottom: 20 }}>{product.name}</Text>
+                      <View style={{ flexDirection: 'row', justifyContent: 'space-between' }}>
+                        <View>
+                          <Text style={{ fontSize: 9, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1 }}>Impressions</Text>
+                          <Text style={{ fontSize: 20, fontFamily: 'HelveticaNeue-Thin', color: '#fff', marginTop: 4 }}>{formatCompact(product.impressions)}</Text>
                         </View>
-                        <View style={{ minWidth: '45%' }}>
-                          <Text
-                            style={{
-                              fontSize: 10,
-                              fontFamily: 'HelveticaNeue-Light',
-                              color: 'rgba(255,255,255,0.5)',
-                              textTransform: 'uppercase',
-                              letterSpacing: 0.5,
-                            }}
-                          >
-                            Taps
-                          </Text>
-                          <Text style={{ fontSize: 20, fontFamily: 'HelveticaNeue-Thin', color: '#fff', marginTop: 4 }}>
-                            {formatCompact(Number(product.clicks ?? 0))}
-                          </Text>
+                        <View>
+                          <Text style={{ fontSize: 9, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1 }}>Taps</Text>
+                          <Text style={{ fontSize: 20, fontFamily: 'HelveticaNeue-Thin', color: '#fff', marginTop: 4 }}>{formatCompact(product.clicks)}</Text>
                         </View>
-                        <View style={{ minWidth: '45%' }}>
-                          <Text
-                            style={{
-                              fontSize: 10,
-                              fontFamily: 'HelveticaNeue-Light',
-                              color: 'rgba(255,255,255,0.5)',
-                              textTransform: 'uppercase',
-                              letterSpacing: 0.5,
-                            }}
-                          >
-                            Orders
-                          </Text>
-                          <Text style={{ fontSize: 20, fontFamily: 'HelveticaNeue-Thin', color: '#FF6B35', marginTop: 4 }}>
-                            {formatCompact(Number(product.orders ?? 0))}
-                          </Text>
+                        <View>
+                          <Text style={{ fontSize: 9, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1 }}>Orders</Text>
+                          <Text style={{ fontSize: 20, fontFamily: 'HelveticaNeue-Thin', color: '#FF6B35', marginTop: 4 }}>{product.orders}</Text>
                         </View>
                       </View>
                     </View>
@@ -302,32 +255,22 @@ const VendorAnalytics = () => {
                 )}
               </View>
 
-              <View style={{ paddingHorizontal: 20, marginBottom: 32 }}>
+              <View style={{ paddingHorizontal: 24 }}>
                 <Text
                   style={{
-                    fontSize: 13,
+                    fontSize: 11,
                     fontFamily: 'HelveticaNeue-Light',
-                    color: 'rgba(255,255,255,0.5)',
+                    color: 'rgba(255,255,255,0.4)',
                     letterSpacing: 1.5,
                     textTransform: 'uppercase',
-                    marginBottom: 16,
+                    marginBottom: 20,
                   }}
                 >
-                  Campaign performance
+                  Campaign Channels
                 </Text>
                 {byType.length === 0 ? (
-                  <View
-                    style={{
-                      backgroundColor: 'rgba(255,255,255,0.04)',
-                      borderRadius: 16,
-                      borderWidth: 1,
-                      borderColor: 'rgba(255,255,255,0.08)',
-                      padding: 18,
-                    }}
-                  >
-                    <Text style={{ fontSize: 14, fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.65)' }}>
-                      Create a campaign to see performance by type.
-                    </Text>
+                  <View style={{ backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 24, padding: 24, alignItems: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)' }}>
+                    <Text style={{ fontSize: 14, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.3)' }}>Start a campaign to track performance.</Text>
                   </View>
                 ) : (
                   <View style={{ gap: 12 }}>
@@ -338,73 +281,42 @@ const VendorAnalytics = () => {
                           key={row.type}
                           style={{
                             backgroundColor: m.bg,
-                            borderRadius: 16,
+                            borderRadius: 24,
                             borderWidth: 1,
                             borderColor: m.border,
-                            padding: 18,
+                            padding: 20,
                           }}
                         >
-                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 14 }}>
+                          <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 16 }}>
                             <View
                               style={{
-                                width: 28,
-                                height: 28,
-                                borderRadius: 14,
-                                backgroundColor: `${m.accent}33`,
+                                width: 32,
+                                height: 32,
+                                borderRadius: 10,
+                                backgroundColor: `${m.accent}20`,
                                 justifyContent: 'center',
                                 alignItems: 'center',
-                                marginRight: 10,
+                                marginRight: 12,
                               }}
                             >
-                              <Ionicons name={m.icon} size={16} color={m.accent} />
+                              <Ionicons name={m.icon} size={18} color={m.accent} />
                             </View>
-                            <Text style={{ fontSize: 15, fontFamily: 'HelveticaNeue', color: '#fff' }}>{m.label}</Text>
+                            <View>
+                               <Text style={{ fontSize: 15, fontFamily: 'HelveticaNeue-Light', color: '#fff' }}>{m.label}</Text>
+                               <Text style={{ fontSize: 10, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.4)', marginTop: 2 }}>
+                                  {row.campaign_count} Active {row.campaign_count === 1 ? 'Campaign' : 'Campaigns'}
+                               </Text>
+                            </View>
                           </View>
-                          <Text
-                            style={{
-                              fontSize: 11,
-                              fontFamily: 'HelveticaNeue-Light',
-                              color: 'rgba(255,255,255,0.45)',
-                              marginBottom: 10,
-                            }}
-                          >
-                            {Number(row.campaign_count ?? 0)}{' '}
-                            {Number(row.campaign_count ?? 0) === 1 ? 'campaign' : 'campaigns'}
-                          </Text>
-                          <View style={{ flexDirection: 'row', gap: 20 }}>
-                            <View style={{ flex: 1 }}>
-                              <Text
-                                style={{
-                                  fontSize: 10,
-                                  fontFamily: 'HelveticaNeue-Light',
-                                  color: 'rgba(255,255,255,0.5)',
-                                  textTransform: 'uppercase',
-                                  letterSpacing: 0.5,
-                                }}
-                              >
-                                CTR
-                              </Text>
-                              <Text style={{ fontSize: 22, fontFamily: 'HelveticaNeue-Thin', color: '#fff', marginTop: 4 }}>
-                                {pct(Number(row.ctr ?? 0))}
-                              </Text>
+                          
+                          <View style={{ flexDirection: 'row', gap: 32 }}>
+                            <View>
+                              <Text style={{ fontSize: 9, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1 }}>CTR</Text>
+                              <Text style={{ fontSize: 22, fontFamily: 'HelveticaNeue-Thin', color: '#fff', marginTop: 4 }}>{pct(row.ctr)}</Text>
                             </View>
-                            <View style={{ flex: 1 }}>
-                              <Text
-                                style={{
-                                  fontSize: 10,
-                                  fontFamily: 'HelveticaNeue-Light',
-                                  color: 'rgba(255,255,255,0.5)',
-                                  textTransform: 'uppercase',
-                                  letterSpacing: 0.5,
-                                }}
-                              >
-                                Taps
-                              </Text>
-                              <Text
-                                style={{ fontSize: 22, fontFamily: 'HelveticaNeue-Thin', color: m.accent, marginTop: 4 }}
-                              >
-                                {formatCompact(Number(row.clicks ?? 0))}
-                              </Text>
+                            <View>
+                              <Text style={{ fontSize: 9, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.4)', textTransform: 'uppercase', letterSpacing: 1 }}>Total Taps</Text>
+                              <Text style={{ fontSize: 22, fontFamily: 'HelveticaNeue-Thin', color: m.accent, marginTop: 4 }}>{formatCompact(row.clicks)}</Text>
                             </View>
                           </View>
                         </View>
@@ -419,6 +331,7 @@ const VendorAnalytics = () => {
 
         <VendorNav active="analytics" />
       </LinearGradient>
+      )}
     </View>
   );
 };

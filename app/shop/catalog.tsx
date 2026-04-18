@@ -13,13 +13,15 @@ import BottomNav from '../components/BottomNav';
 import { Skeleton } from '../../src/components/Skeleton';
 import { EmptyState } from '../../src/components/EmptyState';
 import { useCartStore } from '../../src/stores/cartStore';
+import { COLORS } from '../../src/constants/theme';
+import ModeSwitchOverlay from '../components/ModeSwitchOverlay';
 
 const CATEGORIES = ['All', 'Tops', 'Bottoms', 'Outerwear', 'Footwear', 'Accessories'];
 const SORT_OPTIONS = [
-  { value: 'newest',      label: 'Newest First' },
-  { value: 'price_asc',  label: 'Price: Low → High' },
+  { value: 'newest', label: 'Newest First' },
+  { value: 'price_asc', label: 'Price: Low → High' },
   { value: 'price_desc', label: 'Price: High → Low' },
-  { value: 'popular',    label: 'Most Popular' },
+  { value: 'popular', label: 'Most Popular' },
 ];
 
 // ─── Sort / Filter bottom sheet ──────────────────────────────────────────────
@@ -55,58 +57,56 @@ function FilterSheet({
               </TouchableOpacity>
             </View>
 
-            <ScrollView contentContainerStyle={{ paddingHorizontal: 20, paddingTop: 20 }}>
+            <ScrollView contentContainerStyle={{ paddingHorizontal: 24, paddingTop: 20 }}>
               {/* Sort */}
-              <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.5)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12 }}>
+              <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16 }}>
                 Sort By
               </Text>
-              <View style={{ gap: 8, marginBottom: 28 }}>
+              <View style={{ gap: 10, marginBottom: 32 }}>
                 {SORT_OPTIONS.map(opt => (
                   <TouchableOpacity
                     key={opt.value}
                     onPress={() => setSort(opt.value)}
                     style={{
                       flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                      backgroundColor: sort === opt.value ? 'rgba(255,107,53,0.12)' : 'rgba(255,255,255,0.05)',
-                      borderWidth: 1,
-                      borderColor: sort === opt.value ? 'rgba(255,107,53,0.5)' : 'rgba(255,255,255,0.1)',
-                      borderRadius: 14, paddingHorizontal: 16, paddingVertical: 13,
+                      backgroundColor: sort === opt.value ? 'rgba(255,107,53,0.1)' : 'rgba(255,255,255,0.03)',
+                      borderRadius: 16, paddingHorizontal: 18, paddingVertical: 14,
                     }}
-                    activeOpacity={0.8}
+                    activeOpacity={0.7}
                   >
-                    <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: sort === opt.value ? '#FF6B35' : 'rgba(255,255,255,0.7)', fontSize: 15 }}>
+                    <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: sort === opt.value ? '#FF6B35' : 'rgba(255,255,255,0.6)', fontSize: 15 }}>
                       {opt.label}
                     </Text>
-                    {sort === opt.value && <Ionicons name="checkmark-circle" size={20} color="#FF6B35" />}
+                    {sort === opt.value && <Ionicons name="checkmark" size={20} color="#FF6B35" />}
                   </TouchableOpacity>
                 ))}
               </View>
 
               {/* Price range */}
-              <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.5)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.2, marginBottom: 12 }}>
+              <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 2, marginBottom: 16 }}>
                 Price Range
               </Text>
-              <View style={{ flexDirection: 'row', gap: 12, marginBottom: 28 }}>
+              <View style={{ flexDirection: 'row', gap: 16, marginBottom: 32 }}>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.4)', fontSize: 12, marginBottom: 6 }}>Min ($)</Text>
+                  <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.3)', fontSize: 11, marginBottom: 8 }}>Min ($)</Text>
                   <TextInput
                     value={minPrice}
                     onChangeText={setMinPrice}
                     placeholder="0"
-                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    placeholderTextColor="rgba(255,255,255,0.15)"
                     keyboardType="numeric"
-                    style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontFamily: 'HelveticaNeue', color: '#fff', fontSize: 16 }}
+                    className="bg-white/5 border border-white/5 rounded-xl px-4 py-3.5 text-white font-h-light"
                   />
                 </View>
                 <View style={{ flex: 1 }}>
-                  <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.4)', fontSize: 12, marginBottom: 6 }}>Max ($)</Text>
+                  <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.3)', fontSize: 11, marginBottom: 8 }}>Max ($)</Text>
                   <TextInput
                     value={maxPrice}
                     onChangeText={setMaxPrice}
                     placeholder="Any"
-                    placeholderTextColor="rgba(255,255,255,0.3)"
+                    placeholderTextColor="rgba(255,255,255,0.15)"
                     keyboardType="numeric"
-                    style={{ backgroundColor: 'rgba(255,255,255,0.08)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 12, paddingHorizontal: 14, paddingVertical: 12, fontFamily: 'HelveticaNeue', color: '#fff', fontSize: 16 }}
+                    className="bg-white/5 border border-white/5 rounded-xl px-4 py-3.5 text-white font-h-light"
                   />
                 </View>
               </View>
@@ -114,10 +114,11 @@ function FilterSheet({
               {/* Apply */}
               <TouchableOpacity
                 onPress={onApply}
-                style={{ backgroundColor: '#FF6B35', borderRadius: 16, paddingVertical: 15, alignItems: 'center' }}
-                activeOpacity={0.85}
+                activeOpacity={0.9}
+                className="bg-[#FF6B35] py-4 rounded-2xl"
+                style={{ shadowColor: '#FF6B35', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 5 }}
               >
-                <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 16 }}>Apply Filters</Text>
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 16, textAlign: 'center' }}>Apply Filters</Text>
               </TouchableOpacity>
             </ScrollView>
           </LinearGradient>
@@ -137,47 +138,39 @@ function ProductCard({
   onPress: () => void;
   onVendorPress: () => void;
 }) {
-  const vendorName =
-    item?.vendor_profiles?.shop_name ??
-    item?.vendor?.brand_name ??
-    item?.vendor?.shop_name ??
-    'Vendor';
+  const vendorName = item?.vendor_profiles?.shop_name ?? item?.vendor?.brand_name ?? 'Vendor';
   return (
-    <TouchableOpacity activeOpacity={0.85} onPress={onPress} style={{ flex: 1, margin: 6 }}>
-      <View style={{ borderRadius: 20, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
+    <TouchableOpacity activeOpacity={0.9} onPress={onPress} style={{ flex: 1, margin: 8 }}>
+      <View style={{ borderRadius: 24, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)' }}>
         <View style={{ position: 'relative' }}>
           <Image
             source={{ uri: item.primary_image_url ?? item.images?.[0] ?? 'https://via.placeholder.com/300' }}
-            style={{ width: '100%', aspectRatio: 1 }}
+            style={{ width: '100%', aspectRatio: 0.85, backgroundColor: 'rgba(255,255,255,0.02)' }}
             resizeMode="cover"
           />
           {item.condition === 'preloved' && (
-            <View style={{ position: 'absolute', top: 10, left: 10, backgroundColor: 'rgba(0,0,0,0.75)', borderWidth: 1, borderColor: '#FF6B35', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
-              <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#FF6B35', fontSize: 10, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+            <View style={{ position: 'absolute', top: 12, left: 12, backgroundColor: 'rgba(0,0,0,0.4)', borderRadius: 8, paddingHorizontal: 8, paddingVertical: 4 }}>
+              <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#FF6B35', fontSize: 9, textTransform: 'uppercase', letterSpacing: 1 }}>
                 Preloved
               </Text>
             </View>
           )}
         </View>
-        <View style={{ padding: 12 }}>
-          <TouchableOpacity onPress={onVendorPress} activeOpacity={0.8} style={{ alignSelf: 'flex-start' }}>
-            <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.45)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
-              {vendorName}
-            </Text>
-          </TouchableOpacity>
-          <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff', fontSize: 13, marginBottom: 4 }} numberOfLines={1}>
+        <View style={{ padding: 14 }}>
+          <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.35)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 4 }}>
+            {vendorName}
+          </Text>
+          <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.9)', fontSize: 14, marginBottom: 8 }} numberOfLines={1}>
             {item.name}
           </Text>
-          <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 18 }}>
-            ${item.price?.toFixed(2)}
-          </Text>
-          {item.condition && item.condition !== 'new' && item.condition !== 'preloved' && (
-            <View style={{ marginTop: 6, alignSelf: 'flex-start', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 6, paddingHorizontal: 7, paddingVertical: 3 }}>
-              <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.5)', fontSize: 10, textTransform: 'capitalize' }}>
-                {item.condition}
-              </Text>
+          <View className="flex-row items-center justify-between">
+            <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 17 }}>
+              ${item.price?.toFixed(0)}
+            </Text>
+            <View className="w-6 h-6 rounded-full bg-white/5 items-center justify-center">
+              <Ionicons name="add" size={14} color="rgba(255,255,255,0.4)" />
             </View>
-          )}
+          </View>
         </View>
       </View>
     </TouchableOpacity>
@@ -252,9 +245,26 @@ export default function CatalogScreen() {
       <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           {/* Header */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
-            <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 26 }}>Shop</Text>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 24, paddingTop: 20, paddingBottom: 16 }}>
+            <View>
+              <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.4)', fontSize: 12, textTransform: 'uppercase', letterSpacing: 2 }}>Explore</Text>
+              <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 32, marginTop: 2 }}>Shop</Text>
+            </View>
+            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+              <TouchableOpacity
+                onPress={() => router.push('/shop/cart' as any)}
+                activeOpacity={0.7}
+                style={{ backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 16, width: 48, height: 48, alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Ionicons name="cart-outline" size={24} color="white" />
+                {cartCount > 0 && (
+                  <View
+                    style={{
+                      position: 'absolute', top: 12, right: 12, width: 8, height: 8, borderRadius: 4, backgroundColor: COLORS.primary,
+                    }}
+                  />
+                )}
+              </TouchableOpacity>
               <TouchableOpacity
                 onPress={() => {
                   setPendingSort(sort);
@@ -262,111 +272,78 @@ export default function CatalogScreen() {
                   setPendingMax(maxPrice);
                   setFilterOpen(true);
                 }}
+                activeOpacity={0.7}
                 style={{
-                  backgroundColor: activeFilters ? 'rgba(255,107,53,0.18)' : 'rgba(255,255,255,0.1)',
-                  borderWidth: 1,
-                  borderColor: activeFilters ? 'rgba(255,107,53,0.5)' : 'transparent',
-                  borderRadius: 999, width: 40, height: 40, alignItems: 'center', justifyContent: 'center',
+                  backgroundColor: activeFilters ? 'rgba(255,107,53,0.1)' : 'rgba(255,255,255,0.05)',
+                  borderRadius: 16, width: 48, height: 48, alignItems: 'center', justifyContent: 'center',
                 }}
               >
-                <Ionicons name="options-outline" size={20} color={activeFilters ? '#FF6B35' : 'white'} />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => router.push('/orders/buyer' as any)}
-                style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 999, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
-              >
-                <Ionicons name="bag-outline" size={22} color="white" />
-              </TouchableOpacity>
-              <TouchableOpacity
-                onPress={() => router.push('/shop/cart' as any)}
-                style={{ backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 999, width: 40, height: 40, alignItems: 'center', justifyContent: 'center' }}
-              >
-                <Ionicons name="cart-outline" size={22} color="white" />
-                {cartCount > 0 && (
-                  <View
-                    style={{
-                      position: 'absolute',
-                      top: -2,
-                      right: -2,
-                      width: 12,
-                      height: 12,
-                      borderRadius: 999,
-                      backgroundColor: '#ef4444',
-                      alignItems: 'center',
-                      justifyContent: 'center',
-                      borderWidth: 2,
-                      borderColor: '#000',
-                    }}
-                  />
-                )}
+                <Ionicons name="options-outline" size={24} color={activeFilters ? '#FF6B35' : 'white'} />
               </TouchableOpacity>
             </View>
           </View>
 
           {/* Search bar */}
-          <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.08)', borderRadius: 14, borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', paddingHorizontal: 14, paddingVertical: 11 }}>
-              <Ionicons name="search" size={18} color="rgba(255,255,255,0.4)" />
+          <View style={{ paddingHorizontal: 24, paddingBottom: 20 }}>
+            <View className="flex-row items-center bg-white/5 rounded-2xl px-5 py-4 border border-white/5">
+              <Ionicons name="search-outline" size={20} color="rgba(255,255,255,0.3)" />
               <TextInput
                 value={searchQuery}
                 onChangeText={setSearchQuery}
-                placeholder="Search products, brands…"
-                placeholderTextColor="rgba(255,255,255,0.35)"
-                style={{ flex: 1, fontFamily: 'HelveticaNeue', color: '#fff', fontSize: 15, marginLeft: 10 }}
+                placeholder="Find your next style..."
+                placeholderTextColor="rgba(255,255,255,0.2)"
+                style={{ flex: 1, fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 16, marginLeft: 12 }}
               />
               {searchQuery.length > 0 && (
                 <TouchableOpacity onPress={() => setSearchQuery('')}>
-                  <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.4)" />
+                  <Ionicons name="close-circle" size={18} color="rgba(255,255,255,0.3)" />
                 </TouchableOpacity>
               )}
             </View>
           </View>
 
           {/* Category chips */}
-          <FlatList
-            horizontal
-            data={CATEGORIES}
-            keyExtractor={x => x}
-            showsHorizontalScrollIndicator={false}
-            contentContainerStyle={{ paddingHorizontal: 20, gap: 8, paddingBottom: 10 }}
-            renderItem={({ item }) => (
-              <TouchableOpacity
-                onPress={() => setSelectedCategory(item)}
-                style={{
-                  height: 34,
-                  paddingHorizontal: 12,
-                  borderRadius: 999,
-                  borderWidth: 1,
-                  backgroundColor: selectedCategory === item ? '#FF6B35' : 'rgba(255,255,255,0.07)',
-                  borderColor: selectedCategory === item ? '#FF6B35' : 'rgba(255,255,255,0.14)',
-                  alignItems: 'center', justifyContent: 'center',
-                  alignSelf: 'flex-start',
-                }}
-                activeOpacity={0.85}
-              >
-                <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: selectedCategory === item ? '#fff' : 'rgba(255,255,255,0.6)', fontSize: 11 }}>
-                  {item}
-                </Text>
-              </TouchableOpacity>
-            )}
-          />
+          <View style={{ height: 60, marginBottom: 8 }}>
+            <FlatList
+              horizontal
+              data={CATEGORIES}
+              keyExtractor={x => x}
+              showsHorizontalScrollIndicator={false}
+              contentContainerStyle={{ paddingHorizontal: 24, gap: 10, alignItems: 'center' }}
+              renderItem={({ item }) => {
+                const isActive = selectedCategory === item;
+                return (
+                  <TouchableOpacity
+                    onPress={() => setSelectedCategory(item)}
+                    activeOpacity={0.85}
+                    style={{ 
+                      height: 42,
+                      paddingHorizontal: 20, 
+                      backgroundColor: isActive ? '#FF6B35' : 'rgba(255,255,255,0.05)', 
+                      borderRadius: 21,
+                      borderWidth: 1,
+                      borderColor: isActive ? '#FF6B35' : 'rgba(255,255,255,0.08)',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      ...(isActive ? { shadowColor: '#FF6B35', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 12, elevation: 5 } : {})
+                    }}
+                  >
+                    <Text style={{ 
+                      fontFamily: isActive ? 'HelveticaNeue-Bold' : 'HelveticaNeue-Light', 
+                      color: isActive ? '#fff' : 'rgba(255,255,255,0.7)', 
+                      fontSize: 13 
+                    }}>
+                      {item}
+                    </Text>
+                  </TouchableOpacity>
+                );
+              }}
+            />
+          </View>
 
           {/* Product grid */}
           {isLoading ? (
-            <View style={{ flexDirection: 'row', flexWrap: 'wrap', paddingHorizontal: 6 }}>
-              {Array(6).fill(0).map((_, i) => (
-                <View key={i} style={{ width: '50%', padding: 6 }}>
-                  <View style={{ borderRadius: 20, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}>
-                    <Skeleton style={{ width: '100%', aspectRatio: 1 }} />
-                    <View style={{ padding: 12, gap: 8 }}>
-                      <Skeleton style={{ width: 64, height: 10, borderRadius: 4 }} />
-                      <Skeleton style={{ width: '75%', height: 13, borderRadius: 4 }} />
-                      <Skeleton style={{ width: 48, height: 18, borderRadius: 4 }} />
-                    </View>
-                  </View>
-                </View>
-              ))}
-            </View>
+            <ModeSwitchOverlay />
           ) : (
             <FlatList
               data={products}

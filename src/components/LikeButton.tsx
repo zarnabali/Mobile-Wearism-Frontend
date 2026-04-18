@@ -1,8 +1,7 @@
 import React from 'react';
 import { TouchableOpacity, Text, View } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { apiClient } from '../lib/apiClient';
+import { useLikeMutation } from '../hooks/useLikeMutation';
 
 interface LikeButtonProps {
   post: {
@@ -17,69 +16,7 @@ interface LikeButtonProps {
 }
 
 export function LikeButton({ post, feedType, size = 24, showCount = true }: LikeButtonProps) {
-  const qc = useQueryClient();
-
-  // Optimistic update pattern
-  const mutation = useMutation({
-    mutationFn: () => apiClient.post(`/posts/${post.id}/like`),
-    onMutate: async () => {
-      // 1. If we know the feedKey, optimistically update the infinite list
-      if (feedType) {
-        await qc.cancelQueries({ queryKey: ['feed', feedType] });
-        const prevFeed = qc.getQueryData(['feed', feedType]);
-
-        // Optimistically update the list cache
-        qc.setQueryData(['feed', feedType], (old: any) => {
-          if (!old?.pages) return old;
-          return {
-            ...old,
-            pages: old.pages.map((page: any) => ({
-              ...page,
-              data: (page.data ?? page.posts ?? []).map((p: any) =>
-                p.id !== post.id
-                  ? p
-                  : {
-                      ...p,
-                      viewer_has_liked: !p.viewer_has_liked,
-                      likes_count: p.viewer_has_liked ? p.likes_count - 1 : p.likes_count + 1,
-                    }
-              ),
-            })),
-          };
-        });
-        return { prevFeed, feedKey: ['feed', feedType] };
-      }
-
-      // 2. If it's a standalone post (e.g. detail view context), optimistically update that query directly
-      await qc.cancelQueries({ queryKey: ['post', post.id] });
-      const prevPost = qc.getQueryData(['post', post.id]);
-      qc.setQueryData(['post', post.id], (old: any) => {
-        if (!old) return old;
-        const p = old.post ?? old;
-        return {
-          ...old,
-          post: {
-            ...p,
-            viewer_has_liked: !p.viewer_has_liked,
-            likes_count: p.viewer_has_liked ? p.likes_count - 1 : p.likes_count + 1,
-          },
-        };
-      });
-
-      return { prevPost, postKey: ['post', post.id] };
-    },
-    onError: (_e, _v, ctx: any) => {
-      // Rollback
-      if (ctx?.feedKey && ctx?.prevFeed) qc.setQueryData(ctx.feedKey, ctx.prevFeed);
-      if (ctx?.postKey && ctx?.prevPost) qc.setQueryData(ctx.postKey, ctx.prevPost);
-    },
-    onSettled: () => {
-      qc.invalidateQueries({ queryKey: ['post', post.id] });
-      // Keep home + trending feeds and search explore grid in sync when liking from post detail
-      qc.invalidateQueries({ queryKey: ['feed'] });
-      qc.invalidateQueries({ queryKey: ['search-explore'] });
-    },
-  });
+  const mutation = useLikeMutation(post, feedType);
 
   return (
     <TouchableOpacity

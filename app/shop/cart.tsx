@@ -12,6 +12,7 @@ import { apiClient } from '../../src/lib/apiClient';
 import { useCartStore } from '../../src/stores/cartStore';
 import { Skeleton } from '../../src/components/Skeleton';
 import { EmptyState } from '../../src/components/EmptyState';
+import { COLORS } from '../../src/constants/theme';
 
 export default function CartScreen() {
   const router = useRouter();
@@ -87,60 +88,53 @@ export default function CartScreen() {
 
   // ─── Renderers ──────────────────────────────────────────────────────────
   const renderItem = ({ item }: { item: any }) => (
-      <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: item.is_available ? 'rgba(255,255,255,0.05)' : 'rgba(255,50,50,0.05)', borderRadius: 20, padding: 12, marginBottom: 14, borderWidth: 1, borderColor: item.is_available ? 'rgba(255,255,255,0.1)' : 'rgba(255,100,100,0.3)' }}>
+    <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 24, padding: 16, marginBottom: 16, borderBottomWidth: 0 }}>
       <Image
         source={{ uri: item.product?.primary_image_url ?? 'https://via.placeholder.com/100' }}
-        style={{ width: 68, height: 68, borderRadius: 12, backgroundColor: '#222' }}
+        style={{ width: 80, height: 80, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.03)' }}
         resizeMode="cover"
       />
-      <View style={{ flex: 1, marginLeft: 14 }}>
-        <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: 'rgba(255,255,255,0.4)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 4 }}>
+      <View style={{ flex: 1, marginLeft: 16 }}>
+        <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.3)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 4 }}>
           {item.product?.vendor_profiles?.shop_name ?? 'Vendor'}
         </Text>
-        <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff', fontSize: 14, marginBottom: 4 }} numberOfLines={1}>
+        <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.9)', fontSize: 15, marginBottom: 6 }} numberOfLines={1}>
           {item.product?.name}
         </Text>
-        <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#FF6B35', fontSize: 18 }}>
-          ${item.product?.price?.toFixed(2)}
+        <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 18 }}>
+          ${item.product?.price?.toFixed(0)}
         </Text>
       </View>
 
-      {item.is_available ? (
-        <View style={{ alignItems: 'flex-end', justifyContent: 'space-between', alignSelf: 'stretch' }}>
-          <TouchableOpacity onPress={() => handleDelete(item.id)} style={{ padding: 4 }} disabled={deletingId === item.id || updatingId === item.id}>
-            <Ionicons name="trash-outline" size={18} color="rgba(255,255,255,0.35)" />
-          </TouchableOpacity>
-          <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 999, paddingHorizontal: 8, paddingVertical: 6 }}>
-            {updatingId === item.id || deletingId === item.id ? (
-              <View style={{ width: 70, height: 20, alignItems: 'center', justifyContent: 'center' }}>
-                <ActivityIndicator size="small" color="#FF6B35" />
-              </View>
-            ) : (
-              <>
-                <TouchableOpacity onPress={() => handleUpdate(item.id, item.quantity, -1)} style={{ padding: 2 }}>
-                  <Ionicons name="remove" size={16} color="white" />
-                </TouchableOpacity>
-                <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', marginHorizontal: 10, minWidth: 16, textAlign: 'center' }}>
-                  {item.quantity}
-                </Text>
-                <TouchableOpacity onPress={() => handleUpdate(item.id, item.quantity, 1)} style={{ padding: 2 }}>
-                  <Ionicons name="add" size={16} color="white" />
-                </TouchableOpacity>
-              </>
-            )}
-          </View>
-        </View>
-      ) : (
-        <View style={{ alignItems: 'flex-end', justifyContent: 'center', paddingHorizontal: 8 }}>
-          <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#f87171', fontSize: 11, textTransform: 'uppercase', marginBottom: 8 }}>Sold Out</Text>
+      <View style={{ alignItems: 'flex-end', justifyContent: 'space-between', height: 80 }}>
+        <TouchableOpacity
+          onPress={() => handleDelete(item.id)}
+          disabled={deletingId === item.id || updatingId === item.id}
+          activeOpacity={0.7}
+        >
+          <Ionicons name="close-circle-outline" size={20} color="rgba(255,255,255,0.2)" />
+        </TouchableOpacity>
+
+        <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.05)', borderRadius: 12, paddingHorizontal: 4, paddingVertical: 4 }}>
           <TouchableOpacity
-            onPress={() => deleteItemMutation.mutate(item.id)}
-            style={{ backgroundColor: 'rgba(255,80,80,0.15)', paddingHorizontal: 12, paddingVertical: 7, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,80,80,0.3)' }}
+            onPress={() => handleUpdate(item.id, item.quantity, -1)}
+            style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}
+            disabled={updatingId === item.id}
           >
-            <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#f87171', fontSize: 12 }}>Remove</Text>
+            <Ionicons name="remove" size={16} color="white" />
+          </TouchableOpacity>
+          <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', marginHorizontal: 8, minWidth: 20, textAlign: 'center', fontSize: 13 }}>
+            {item.quantity}
+          </Text>
+          <TouchableOpacity
+            onPress={() => handleUpdate(item.id, item.quantity, 1)}
+            style={{ width: 28, height: 28, alignItems: 'center', justifyContent: 'center' }}
+            disabled={updatingId === item.id}
+          >
+            <Ionicons name="add" size={16} color="white" />
           </TouchableOpacity>
         </View>
-      )}
+      </View>
     </View>
   );
 
@@ -149,13 +143,20 @@ export default function CartScreen() {
       <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
         <SafeAreaView className="flex-1" edges={['top']}>
           {/* Header */}
-          <View className="px-5 py-4 border-b border-white/10 flex-row items-center z-10">
-            <TouchableOpacity onPress={() => router.back()} className="mr-4">
-              <Ionicons name="arrow-back" size={24} color="white" />
-            </TouchableOpacity>
-            <Text className="text-white text-xl font-bold tracking-tight" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
-              My Cart
-            </Text>
+          <View className="px-6 py-6 flex-row items-center justify-between">
+            <View className="flex-row items-center">
+              <TouchableOpacity
+                onPress={() => router.back()}
+                activeOpacity={0.7}
+                style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}
+              >
+                <Ionicons name="chevron-back" size={22} color="white" />
+              </TouchableOpacity>
+              <View className="ml-5">
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.4)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 2 }}>Checkout</Text>
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 24, marginTop: 1 }}>My Cart</Text>
+              </View>
+            </View>
           </View>
 
           {isLoading ? (
@@ -198,29 +199,30 @@ export default function CartScreen() {
                 showsVerticalScrollIndicator={false}
               />
 
-              {/* Fixed Bottom Checkout Bar */}
+              {/* Summary Bar */}
               {activeItems.length > 0 && (
-                <SafeAreaView edges={['bottom']} className="absolute bottom-0 w-full bg-black/90 pt-4 px-5 pb-2 border-t border-white/10 backdrop-blur-xl">
-                  <View className="flex-row justify-between items-center mb-4 px-2">
-                    <Text className="text-white/60 text-base" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}>Subtotal</Text>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
-                      {(isFetching || updateQtyMutation.isPending || deleteItemMutation.isPending) && (
-                        <ActivityIndicator size="small" color="#FF6B35" />
-                      )}
-                      <Text className="text-white text-2xl tracking-tight" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Light' }}>
-                        ${subtotal.toFixed(2)}
-                      </Text>
+                <SafeAreaView edges={['bottom']} className="absolute bottom-0 w-full">
+                  <View className="px-6 pb-8 pt-4 bg-black/40 backdrop-blur-xl border-t border-white/5">
+                    <View className="flex-row justify-between items-end mb-6">
+                      <View>
+                        <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.3)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 4 }}>Subtotal</Text>
+                        <Text style={{ fontFamily: 'HelveticaNeue-light', color: '#fff', fontSize: 26 }}>${subtotal.toFixed(0)}</Text>
+                      </View>
+                      <View className="bg-white/5 px-4 py-2 rounded-full border border-white/5">
+                        <Text className="text-white/40 text-[11px] font-h-bold uppercase tracking-wider">{activeItems.length} ITEMS</Text>
+                      </View>
                     </View>
+
+                    <TouchableOpacity
+                      onPress={() => router.push('/shop/checkout')}
+                      activeOpacity={0.9}
+                      className="bg-[#FF6B35] py-5 rounded-2xl flex-row items-center justify-center"
+                      style={{ shadowColor: '#FF6B35', shadowOffset: { width: 0, height: 10 }, shadowOpacity: 0.2, shadowRadius: 20, elevation: 5 }}
+                    >
+                      <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 17 }}>PROCEED TO CHECKOUT</Text>
+                      <Ionicons name="arrow-forward" size={18} color="white" style={{ marginLeft: 8 }} />
+                    </TouchableOpacity>
                   </View>
-                  <TouchableOpacity
-                    onPress={() => router.push('/shop/checkout')}
-                    className="w-full bg-[#FF6B35] h-14 rounded-xl items-center justify-center shadow-lg shadow-orange-500/20"
-                    activeOpacity={0.8}
-                  >
-                    <Text className="text-white font-bold text-lg" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
-                      Proceed to Checkout
-                    </Text>
-                  </TouchableOpacity>
                 </SafeAreaView>
               )}
             </>

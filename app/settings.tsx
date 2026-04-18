@@ -8,6 +8,7 @@ import { useVendor } from './contexts/VendorContext';
 import { useAuthStore } from '../src/stores/authStore';
 import * as WebBrowser from 'expo-web-browser';
 import { apiClient } from '../src/lib/apiClient';
+import { COLORS } from '../src/constants/theme';
 
 interface SettingsProps {
     visible: boolean;
@@ -35,7 +36,9 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
     const handleVendorDashboard = () => {
         onClose();
         setVendorMode(true);
-        router.push('/vendor/dashboard' as any);
+        setTimeout(() => {
+            router.push('/vendor/dashboard' as any);
+        }, 1200);
     };
 
     const handleOptionPress = async (id: string) => {
@@ -75,7 +78,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
             } else {
                 router.push('/home');
             }
-        }, 100);
+        }, 1200);
     };
 
     const handleLogout = async () => {
@@ -142,15 +145,15 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                                 {/* Header */}
                                 <View style={{ padding: 20, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.1)' }}>
                                     <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center' }}>
-                                        <Text
-                                            style={{
-                                                fontSize: 28,
-                                                fontFamily: 'HelveticaNeue-Bold',
-                                                color: '#fff',
-                                            }}
-                                        >
-                                            Settings
-                                        </Text>
+                                            <Text
+                                                style={{
+                                                    fontSize: 28,
+                                                    color: '#fff',
+                                                }}
+                                                className="font-h-bold"
+                                            >
+                                                Settings
+                                            </Text>
                                         <TouchableOpacity
                                             onPress={onClose}
                                             style={{
@@ -199,9 +202,9 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                                                 style={{
                                                     flex: 1,
                                                     fontSize: 16,
-                                                    fontFamily: 'HelveticaNeue',
                                                     color: '#fff',
                                                 }}
+                                                className="font-h-light"
                                             >
                                                 {option.label}
                                             </Text>
@@ -219,7 +222,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                                                     alignItems: 'center',
                                                     backgroundColor: 'rgba(255, 107, 53, 0.15)',
                                                     borderWidth: 1,
-                                                    borderColor: '#FF6B35',
+                                                    borderColor: COLORS.primary,
                                                     borderRadius: 16,
                                                     padding: 16,
                                                 }}
@@ -230,7 +233,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                                                         width: 40,
                                                         height: 40,
                                                         borderRadius: 12,
-                                                        backgroundColor: '#FF6B35',
+                                                        backgroundColor: COLORS.primary,
                                                         justifyContent: 'center',
                                                         alignItems: 'center',
                                                         marginRight: 16,
@@ -242,24 +245,24 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                                                     <Text
                                                         style={{
                                                             fontSize: 16,
-                                                            fontFamily: 'HelveticaNeue-Bold',
-                                                            color: '#FF6B35',
+                                                            color: COLORS.primary,
                                                         }}
+                                                        className="font-h-bold"
                                                     >
                                                         Become a Vendor
                                                     </Text>
                                                     <Text
                                                         style={{
                                                             fontSize: 13,
-                                                            fontFamily: 'HelveticaNeue',
                                                             color: 'rgba(255,255,255,0.6)',
                                                             marginTop: 2,
                                                         }}
+                                                        className="font-h-light"
                                                     >
                                                         Start selling your products
                                                     </Text>
                                                 </View>
-                                                <Ionicons name="arrow-forward" size={20} color="#FF6B35" />
+                                                <Ionicons name="arrow-forward" size={20} color={COLORS.primary} />
                                             </TouchableOpacity>
                                         ) : (
                                             <View style={{ gap: 12 }}>
@@ -270,7 +273,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                                                         alignItems: 'center',
                                                         backgroundColor: 'rgba(255, 107, 53, 0.15)',
                                                         borderWidth: 1,
-                                                        borderColor: '#FF6B35',
+                                                        borderColor: COLORS.primary,
                                                         borderRadius: 16,
                                                         padding: 16,
                                                     }}
@@ -281,7 +284,7 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                                                             width: 40,
                                                             height: 40,
                                                             borderRadius: 12,
-                                                            backgroundColor: '#FF6B35',
+                                                            backgroundColor: COLORS.primary,
                                                             justifyContent: 'center',
                                                             alignItems: 'center',
                                                             marginRight: 16,
@@ -293,24 +296,24 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                                                         <Text
                                                             style={{
                                                                 fontSize: 16,
-                                                                fontFamily: 'HelveticaNeue-Bold',
-                                                                color: '#FF6B35',
+                                                                color: COLORS.primary,
                                                             }}
+                                                            className="font-h-bold"
                                                         >
                                                             Vendor Dashboard
                                                         </Text>
                                                         <Text
                                                             style={{
                                                                 fontSize: 13,
-                                                                fontFamily: 'HelveticaNeue',
                                                                 color: 'rgba(255,255,255,0.6)',
                                                                 marginTop: 2,
                                                             }}
+                                                            className="font-h-light"
                                                         >
                                                             Manage your store
                                                         </Text>
                                                     </View>
-                                                    <Ionicons name="arrow-forward" size={20} color="#FF6B35" />
+                                                    <Ionicons name="arrow-forward" size={20} color={COLORS.primary} />
                                                 </TouchableOpacity>
 
                                                 <TouchableOpacity
@@ -343,19 +346,19 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                                                         <Text
                                                             style={{
                                                                 fontSize: 16,
-                                                                fontFamily: 'HelveticaNeue-Bold',
                                                                 color: 'rgba(255,255,255,0.85)',
                                                             }}
+                                                            className="font-h-bold"
                                                         >
                                                             {isVendorMode ? 'Switch to User Mode' : 'Switch to Vendor Mode'}
                                                         </Text>
                                                         <Text
                                                             style={{
                                                                 fontSize: 13,
-                                                                fontFamily: 'HelveticaNeue',
                                                                 color: 'rgba(255,255,255,0.55)',
                                                                 marginTop: 2,
                                                             }}
+                                                            className="font-h-light"
                                                         >
                                                             {isVendorMode ? 'Browse as a customer' : 'Sell & manage orders'}
                                                         </Text>
@@ -394,9 +397,9 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                                             style={{
                                                 flex: 1,
                                                 fontSize: 16,
-                                                fontFamily: 'HelveticaNeue',
                                                 color: '#FF3B30',
                                             }}
+                                            className="font-h-light"
                                         >
                                             Logout
                                         </Text>
@@ -429,10 +432,10 @@ const Settings: React.FC<SettingsProps> = ({ visible, onClose }) => {
                                             style={{
                                                 flex: 1,
                                                 fontSize: 16,
-                                                fontFamily: 'HelveticaNeue',
                                                 color: '#FF3B30',
                                                 opacity: 0.8,
                                             }}
+                                            className="font-h-light"
                                         >
                                             Delete Account
                                         </Text>

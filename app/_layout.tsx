@@ -7,8 +7,10 @@ import { useFonts } from 'expo-font';
 import * as SplashScreen from 'expo-splash-screen';
 import { ErrorBoundary } from '../src/components/ErrorBoundary';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
-import VendorProvider from './contexts/VendorContext';
 import { registerFcmToken, setupNotificationHandlers } from '../src/lib/notifications';
+import { GestureHandlerRootView } from 'react-native-gesture-handler';
+import VendorProvider, { useVendor } from './contexts/VendorContext';
+import ModeSwitchOverlay from './components/ModeSwitchOverlay';
 
 SplashScreen.preventAutoHideAsync();
 
@@ -40,7 +42,14 @@ function AuthGuard() {
     return cleanup;
   }, [isSignedIn]);
 
-  return <Slot />;
+  const { isSwitching } = useVendor();
+
+  return (
+    <>
+      <Slot />
+      {isSwitching && <ModeSwitchOverlay />}
+    </>
+  );
 }
 
 export default function RootLayout() {
@@ -63,15 +72,17 @@ export default function RootLayout() {
   if (!fontsLoaded && !fontError) return null;
 
   return (
-    <SafeAreaProvider>
-      <ErrorBoundary>
-        <QueryClientProvider client={queryClient}>
-          <VendorProvider>
-            {/* Profile: `app/profile/_layout.tsx` Stack registers `index`, `[id]` (public user), and `edit`. */}
-            <AuthGuard />
-          </VendorProvider>
-        </QueryClientProvider>
-      </ErrorBoundary>
-    </SafeAreaProvider>
+    <GestureHandlerRootView style={{ flex: 1 }}>
+      <SafeAreaProvider>
+        <ErrorBoundary>
+          <QueryClientProvider client={queryClient}>
+            <VendorProvider>
+              {/* Profile: `app/profile/_layout.tsx` Stack registers `index`, `[id]` (public user), and `edit`. */}
+              <AuthGuard />
+            </VendorProvider>
+          </QueryClientProvider>
+        </ErrorBoundary>
+      </SafeAreaProvider>
+    </GestureHandlerRootView>
   );
 }

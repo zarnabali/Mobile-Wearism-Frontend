@@ -18,6 +18,7 @@ import { apiClient } from '../../src/lib/apiClient';
 import { Skeleton } from '../../src/components/Skeleton';
 import { FollowButton } from '../../src/components/FollowButton';
 import { useAuthStore } from '../../src/stores/authStore';
+import ModeSwitchOverlay from '../components/ModeSwitchOverlay';
 
 export default function PublicProfileScreen() {
   const { id: rawId } = useLocalSearchParams<{ id: string }>();
@@ -39,6 +40,10 @@ export default function PublicProfileScreen() {
   const profile = data?.profile;
   const posts: { id: string; image_url: string | null }[] = profile?.recent_posts ?? [];
 
+  if (isLoading) {
+    return <ModeSwitchOverlay />;
+  }
+
   if (!id) {
     return (
       <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
@@ -48,19 +53,11 @@ export default function PublicProfileScreen() {
   }
 
   if (!currentUserId) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#FF6B35" />
-      </View>
-    );
+    return <ModeSwitchOverlay />;
   }
 
   if (id && currentUserId && id === currentUserId) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator size="large" color="#FF6B35" />
-      </View>
-    );
+    return <ModeSwitchOverlay />;
   }
 
   if (isError || (!isLoading && !profile)) {

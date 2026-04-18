@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import {
   View, Text, TextInput, ScrollView, TouchableOpacity, Alert,
   Image, ActivityIndicator, KeyboardAvoidingView, Platform,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { useLocalSearchParams, useRouter } from 'expo-router';
@@ -10,12 +11,15 @@ import * as ImagePicker from 'expo-image-picker';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
 import { apiClient } from '../../src/lib/apiClient';
+import ModeSwitchOverlay from '../components/ModeSwitchOverlay';
 
 const CATEGORIES = [
   'tops', 'bottoms', 'outerwear', 'footwear', 'accessories',
   'dresses', 'bags', 'jewelry', 'activewear', 'swimwear', 'other'
 ];
 const CONDITIONS = ['new', 'like_new', 'good', 'fair', 'poor'];
+
+const { width } = Dimensions.get('window');
 
 export default function ProductCreateScreen() {
   const router = useRouter();
@@ -72,7 +76,6 @@ export default function ProductCreateScreen() {
     setPrice(initialSnapshot.price);
     setStock(initialSnapshot.stock);
     setTags(initialSnapshot.tags);
-    // Note: keep `images` empty; existing images are already on product.
     setRemovedExistingImageIds(new Set());
   }, [isEdit, initialSnapshot]);
 
@@ -121,7 +124,6 @@ export default function ProductCreateScreen() {
         if (String(next.stock_quantity) !== String(parseInt(initialSnapshot.stock || '0'))) updates.stock_quantity = next.stock_quantity;
         if (next.tags.join(',') !== (initialSnapshot.tags || '').split(',').map(t => t.trim()).filter(Boolean).join(',')) updates.tags = next.tags;
 
-        // If user tapped publish, force status active.
         if (publish) updates.status = 'active';
 
         if (Object.keys(updates).length) {
@@ -133,7 +135,6 @@ export default function ProductCreateScreen() {
         return { product: { id: existingProduct.id }, publish };
       }
 
-      // Create mode
       const res = await apiClient.post('/products', {
         name: name.trim(),
         description: description || undefined,
@@ -149,7 +150,6 @@ export default function ProductCreateScreen() {
     onSuccess: async ({ product, publish }) => {
       const productId = product.id;
 
-      // Step 2: Upload images if any
       if (images.length > 0) {
         setUploading(true);
         for (let i = 0; i < images.length; i++) {
@@ -159,7 +159,6 @@ export default function ProductCreateScreen() {
             name: images[i].name,
             type: 'image/jpeg',
           } as any);
-          // Prevent overwriting primary image in edit mode unless the product has no images yet.
           const shouldSetPrimary = !isEdit
             ? i === 0
             : (!hasExistingPrimary && existingImages.length === 0 && i === 0);
@@ -172,8 +171,6 @@ export default function ProductCreateScreen() {
         setUploading(false);
       }
 
-      // Step 3: Activate if publish
-      // In edit mode, publish may already have been done via PATCH above.
       if (!isEdit && publish) await apiClient.patch(`/products/${productId}/activate`);
 
       qc.invalidateQueries({ queryKey: ['vendor-products'] });
@@ -208,288 +205,218 @@ export default function ProductCreateScreen() {
   };
 
   const canSubmit = name.trim() && category && parseFloat(price) > 0 && !createMutation.isPending && !uploading && (!isEdit || !loadingExisting);
+  const isBusy = loadingExisting || uploading || createMutation.isPending;
 
   return (
     <View className="flex-1 bg-black">
-      <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
-        <SafeAreaView className="flex-1" edges={['top']}>
+      {isBusy ? (
+        <ModeSwitchOverlay />
+      ) : (
+        <LinearGradient colors={['rgba(30,0,4,1)', 'rgba(0,0,0,1)']} style={{ flex: 1 }}>
+          <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           {/* Header */}
-          <View className="flex-row items-center px-5 border-b border-white/10" style={{ paddingVertical: 14 }}>
-            <TouchableOpacity onPress={() => router.back()} className="p-1">
-              <Ionicons name="arrow-back" size={24} color="white" />
+          <View className="px-6 pt-6 pb-8 flex-row items-center">
+            <TouchableOpacity 
+              onPress={() => router.back()} 
+              activeOpacity={0.7}
+              style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Ionicons name="chevron-back" size={22} color="white" />
             </TouchableOpacity>
-            <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }} className="text-white text-lg ml-4">
-              {isEdit ? 'Edit Product' : 'New Product'}
-            </Text>
+            <View className="ml-5">
+              <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.8)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 2 }}>Catalog</Text>
+              <Text style={{ fontFamily: 'HelveticaNeue-Thin', color: '#fff', fontSize: 32, marginTop: 4, letterSpacing: -0.5 }}>
+                 {isEdit ? 'Edit Item' : 'New Item'}
+              </Text>
+            </View>
           </View>
 
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-            <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 120 }} showsVerticalScrollIndicator={false}>
+            <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 160 }} showsVerticalScrollIndicator={false}>
               
               {/* Images Section */}
-              <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }} className="text-white/50 text-xs mb-4 uppercase tracking-widest">
-                Product Photos (Up to 6)
+              <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.6)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5, marginBottom: 20 }}>
+                Product Photos
               </Text>
 
-              {isEdit && existingImages.length > 0 && (
-                <View style={{ marginBottom: 12 }}>
-                  <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }} className="text-white/40 text-[10px] mb-3 uppercase tracking-widest">
-                    Currently Added
-                  </Text>
-                  <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 12 }}>
-                    {visibleExistingImages
-                      .slice()
-                      .sort((a, b) => (b.is_primary ? 1 : 0) - (a.is_primary ? 1 : 0))
-                      .map((img) => (
-                        <View key={img.id} className="relative">
-                          <Image source={{ uri: img.image_url }} className="w-24 h-24 rounded-2xl bg-white/5 border border-white/10" />
-                          {img.is_primary && (
-                            <View style={{ position: 'absolute', top: 4, left: 4, backgroundColor: '#FF6B35', borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 }}>
-                              <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 9 }}>PRIMARY</Text>
-                            </View>
-                          )}
-                          <TouchableOpacity
-                            onPress={() => {
-                              if (!existingProduct?.id) return;
-                              Alert.alert(
-                                'Remove image?',
-                                'This will delete the image from the product.',
-                                [
-                                  { text: 'Cancel', style: 'cancel' },
-                                  {
-                                    text: 'Remove',
-                                    style: 'destructive',
-                                    onPress: () => deleteExistingImageMutation.mutate({ productId: existingProduct.id, imageId: img.id }),
-                                  },
-                                ],
-                              );
-                            }}
-                            disabled={deleteExistingImageMutation.isPending || uploading || createMutation.isPending}
-                            className="absolute -top-2 -right-2 bg-red-500 rounded-full w-6 h-6 items-center justify-center border-2 border-black"
-                          >
-                            <Ionicons name="close" size={14} color="white" />
-                          </TouchableOpacity>
-                        </View>
-                      ))}
-                  </ScrollView>
-                  <Text style={{ marginTop: 10, fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.35)', fontSize: 12 }}>
-                    Adding more photos will keep existing ones and append new uploads.
-                  </Text>
-                </View>
-              )}
-
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-8" contentContainerStyle={{ gap: 12 }}>
+              <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 12, marginBottom: 40 }}>
                 {images.map((img, i) => (
-                  <View key={i} className="relative">
-                    <Image source={{ uri: img.uri }} className="w-24 h-24 rounded-2xl bg-white/5 border border-white/10" />
+                  <View key={i} style={{ width: (width - 48 - 24) / 3, aspectRatio: 1 }}>
+                    <Image source={{ uri: img.uri }} style={{ width: '100%', height: '100%', borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }} />
                     {i === 0 && (
-                      <View style={{ position: 'absolute', top: 4, left: 4, backgroundColor: '#FF6B35', borderRadius: 5, paddingHorizontal: 6, paddingVertical: 2 }}>
-                        <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 9 }}>PRIMARY</Text>
+                      <View style={{ position: 'absolute', bottom: 8, left: 8, backgroundColor: '#FF6B35', borderRadius: 6, paddingHorizontal: 6, paddingVertical: 2 }}>
+                        <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff', fontSize: 8 }}>MAIN</Text>
                       </View>
                     )}
                     <TouchableOpacity
                       onPress={() => setImages(prev => prev.filter((_, j) => j !== i))}
-                      className="absolute -top-2 -right-2 bg-red-500 rounded-full w-6 h-6 items-center justify-center border-2 border-black"
+                      style={{ position: 'absolute', top: -4, right: -4, backgroundColor: '#000', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
                     >
                       <Ionicons name="close" size={14} color="white" />
                     </TouchableOpacity>
                   </View>
                 ))}
-                {images.length < 6 && (
-                  <TouchableOpacity
-                    onPress={pickImage}
-                    className="w-24 h-24 rounded-2xl border-2 border-dashed border-white/20 items-center justify-center bg-white/5"
-                  >
-                    <Ionicons name="camera-outline" size={32} color="rgba(255,255,255,0.2)" />
-                    <Text className="text-white/20 text-[10px] mt-1 font-bold">ADD PHOTO</Text>
-                  </TouchableOpacity>
+                
+                {isEdit && visibleExistingImages.map((img) => (
+                  <View key={img.id} style={{ width: (width - 48 - 24) / 3, aspectRatio: 1 }}>
+                    <Image source={{ uri: img.image_url }} style={{ width: '100%', height: '100%', borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }} />
+                    <TouchableOpacity
+                      onPress={() => deleteExistingImageMutation.mutate({ productId: existingProduct.id, imageId: img.id })}
+                      style={{ position: 'absolute', top: -4, right: -4, backgroundColor: '#000', borderRadius: 12, width: 24, height: 24, alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
+                    >
+                      <Ionicons name="trash-outline" size={14} color="#ff4444" />
+                    </TouchableOpacity>
+                  </View>
+                ))}
+
+                {images.length + visibleExistingImages.length < 6 && (
+                  <View style={{ width: (width - 48 - 24) / 3, aspectRatio: 1 }}>
+                    <TouchableOpacity
+                      onPress={pickImage}
+                      style={{ 
+                        width: '100%', 
+                        height: '100%', 
+                        borderRadius: 24, 
+                        borderStyle: 'dashed', 
+                        borderWidth: 1.5, 
+                        borderColor: 'rgba(255,255,255,0.2)', 
+                        backgroundColor: 'rgba(255,255,255,0.06)', 
+                        alignItems: 'center', 
+                        justifyContent: 'center' 
+                      }}
+                    >
+                      <Ionicons name="camera-outline" size={28} color="rgba(255,255,255,0.5)" />
+                      <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.5)', fontSize: 10, marginTop: 8 }}>ADD</Text>
+                    </TouchableOpacity>
+                  </View>
                 )}
-              </ScrollView>
+              </View>
 
               {/* Form Fields */}
-              <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }} className="text-white/50 text-xs mb-2 uppercase tracking-widest">
-                Product Name *
-              </Text>
-              <View className="bg-white/10 rounded-2xl px-4 border border-white/10 mb-6">
-                <TextInput
-                  value={name}
-                  onChangeText={setName}
-                  placeholder="e.g. Signature Leather Tote"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  className="text-white text-[16px]"
-                  style={{ paddingVertical: 14, fontFamily: 'HelveticaNeue' }}
-                />
+              <View className="mb-10">
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 12, marginBottom: 12, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Product Name</Text>
+                <View className="bg-white/8 rounded-2xl px-5 border border-white/15">
+                  <TextInput
+                    value={name}
+                    onChangeText={setName}
+                    placeholder="e.g. Minimalist Linen Shirt"
+                    placeholderTextColor="rgba(255,255,255,0.6)"
+                    style={{ paddingVertical: 20, fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 16 }}
+                  />
+                </View>
               </View>
 
-              <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }} className="text-white/50 text-xs mb-2 uppercase tracking-widest">
-                Description
-              </Text>
-              <View className="bg-white/10 rounded-2xl px-4 border border-white/10 mb-6">
-                <TextInput
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholder="Tell buyers about your product..."
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  multiline
-                  className="text-white text-[16px]"
-                  style={{ paddingVertical: 14, fontFamily: 'HelveticaNeue', minHeight: 100, textAlignVertical: 'top' }}
-                />
+              <View className="mb-10">
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 12, marginBottom: 12, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Description</Text>
+                <View className="bg-white/8 rounded-2xl px-5 border border-white/15">
+                  <TextInput
+                    value={description}
+                    onChangeText={setDescription}
+                    placeholder="Describe the fabric, fit, and feel..."
+                    placeholderTextColor="rgba(255,255,255,0.6)"
+                    multiline
+                    style={{ paddingVertical: 20, fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 16, minHeight: 140, textAlignVertical: 'top' }}
+                  />
+                </View>
               </View>
 
-              <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }} className="text-white/50 text-xs mb-3 uppercase tracking-widest">
-                Category *
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6" contentContainerStyle={{ gap: 8 }}>
-                {CATEGORIES.map(cat => (
-                  <TouchableOpacity
-                    key={cat}
-                    onPress={() => setCategory(cat)}
-                    className={`px-5 rounded-full border ${
-                      category === cat ? 'bg-[#FF6B35] border-[#FF6B35]' : 'bg-white/5 border-white/10'
-                    }`}
-                    style={{ paddingVertical: 9, alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    <Text style={{ fontFamily: 'HelveticaNeue-Bold' }} className={`capitalize text-sm ${category === cat ? 'text-white' : 'text-white/60'}`}>
-                      {cat}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
+              <View className="mb-10">
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 12, marginBottom: 16, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Category</Text>
+                <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={{ gap: 10 }}>
+                  {CATEGORIES.map(cat => (
+                    <TouchableOpacity
+                      key={cat}
+                      onPress={() => setCategory(cat)}
+                      activeOpacity={0.8}
+                      style={{ 
+                        paddingHorizontal: 22, 
+                        paddingVertical: 12, 
+                        borderRadius: 24, 
+                        backgroundColor: category === cat ? '#FF6B35' : 'rgba(255,255,255,0.08)',
+                        borderWidth: 1.5,
+                        borderColor: category === cat ? '#FF6B35' : 'rgba(255,255,255,0.15)',
+                        ...(category === cat ? { shadowColor: '#FF6B35', shadowOffset: { width: 0, height: 6 }, shadowOpacity: 0.3, shadowRadius: 10, elevation: 5 } : {})
+                      }}
+                    >
+                      <Text style={{ fontFamily: 'HelveticaNeue-Light', color: category === cat ? '#fff' : 'rgba(255,255,255,0.9)', fontSize: 14, textTransform: 'capitalize' }}>
+                        {cat}
+                      </Text>
+                    </TouchableOpacity>
+                  ))}
+                </ScrollView>
+              </View>
 
-              <View className="flex-row gap-4 mb-6">
+              <View className="flex-row gap-6 mb-10">
                 <View className="flex-1">
-                  <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }} className="text-white/50 text-xs mb-2 uppercase tracking-widest">
-                    Price (PKR) *
-                  </Text>
-                  <View className="bg-white/10 rounded-2xl px-4 border border-white/10">
+                  <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 12, marginBottom: 12, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Price ($)</Text>
+                  <View className="bg-white/8 rounded-2xl px-5 border border-white/15">
                     <TextInput
                       value={price}
                       onChangeText={setPrice}
-                      placeholder="0"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
                       keyboardType="numeric"
-                      className="text-white text-[16px] font-bold"
-                      style={{ paddingVertical: 14, fontFamily: 'HelveticaNeue-Bold' }}
+                      placeholder="0"
+                      placeholderTextColor="rgba(255,255,255,0.6)"
+                      style={{ paddingVertical: 20, fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 16 }}
                     />
                   </View>
                 </View>
                 <View className="flex-1">
-                  <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }} className="text-white/50 text-xs mb-2 uppercase tracking-widest">
-                    Stock
-                  </Text>
-                  <View className="bg-white/10 rounded-2xl px-4 border border-white/10">
+                  <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 12, marginBottom: 12, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Quantity</Text>
+                  <View className="bg-white/8 rounded-2xl px-5 border border-white/15">
                     <TextInput
                       value={stock}
                       onChangeText={setStock}
-                      placeholder="1"
-                      placeholderTextColor="rgba(255,255,255,0.3)"
                       keyboardType="numeric"
-                      className="text-white text-[16px] font-bold"
-                      style={{ paddingVertical: 14, fontFamily: 'HelveticaNeue-Bold' }}
+                      placeholder="1"
+                      placeholderTextColor="rgba(255,255,255,0.6)"
+                      style={{ paddingVertical: 20, fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 16 }}
                     />
                   </View>
                 </View>
-              </View>
-
-              <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }} className="text-white/50 text-xs mb-3 uppercase tracking-widest">
-                Condition
-              </Text>
-              <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-6" contentContainerStyle={{ gap: 8 }}>
-                {CONDITIONS.map(cond => (
-                  <TouchableOpacity
-                    key={cond}
-                    onPress={() => setCondition(cond)}
-                    className={`px-5 rounded-full border ${
-                      condition === cond ? 'bg-[#FF6B35] border-[#FF6B35]' : 'bg-white/5 border-white/10'
-                    }`}
-                    style={{ paddingVertical: 9, alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    <Text style={{ fontFamily: 'HelveticaNeue-Bold' }} className={`capitalize text-sm ${condition === cond ? 'text-white' : 'text-white/60'}`}>
-                      {cond.replace('_', ' ')}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-
-              <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }} className="text-white/50 text-xs mb-2 uppercase tracking-widest">
-                Tags (Comma separated)
-              </Text>
-              <View className="bg-white/10 rounded-2xl px-4 border border-white/10 mb-6">
-                <TextInput
-                  value={tags}
-                  onChangeText={setTags}
-                  placeholder="luxury, silk, limited..."
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  className="text-white text-[16px]"
-                  style={{ paddingVertical: 14, fontFamily: 'HelveticaNeue' }}
-                />
               </View>
 
             </ScrollView>
           </KeyboardAvoidingView>
 
           {/* Action Bar */}
-          <View className="absolute bottom-0 left-0 right-0 p-5 bg-black/80 backdrop-blur-lg border-t border-white/10 flex-row gap-4">
-            {isEdit ? (
-              <TouchableOpacity
-                onPress={() => {
-                  if (!existingProduct?.id) return;
-                  Alert.alert(
-                    'Delete product?',
-                    'This will remove the product from your inventory. This action cannot be undone.',
-                    [
-                      { text: 'Cancel', style: 'cancel' },
-                      {
-                        text: 'Delete',
-                        style: 'destructive',
-                        onPress: async () => {
-                          try {
-                            await apiClient.delete(`/products/${existingProduct.id}`);
-                            qc.invalidateQueries({ queryKey: ['vendor-products'] });
-                            Alert.alert('Deleted', 'Product deleted.');
-                            router.back();
-                          } catch (err: any) {
-                            Alert.alert('Error', err.response?.data?.error || 'Could not delete product.');
-                          }
-                        },
-                      },
-                    ],
-                  );
-                }}
-                disabled={createMutation.isPending || uploading || loadingExisting}
-                className="flex-1 bg-red-500/15 h-14 rounded-full border border-red-500/30 items-center justify-center"
-              >
-                <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }} className="text-red-400 uppercase tracking-widest">
-                  Delete
-                </Text>
-              </TouchableOpacity>
-            ) : (
-              <TouchableOpacity
-                onPress={() => createMutation.mutate(false)}
-                disabled={!canSubmit}
-                className="flex-1 bg-white/5 h-14 rounded-full border border-white/10 items-center justify-center"
-              >
-                <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }} className="text-white/60 uppercase tracking-widest">
-                  Save Draft
-                </Text>
-              </TouchableOpacity>
-            )}
+          <View className="absolute bottom-0 left-0 right-0 p-8 bg-black/80 backdrop-blur-3xl border-t border-white/5 flex-row gap-5">
             <TouchableOpacity
-              onPress={() => createMutation.mutate(isEdit ? false : true)}
+              onPress={() => createMutation.mutate(false)}
               disabled={!canSubmit}
-              className="flex-1 bg-[#FF6B35] h-14 rounded-full items-center justify-center shadow-lg shadow-orange-500/20"
+              style={{ flex: 1, height: 64, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}
+            >
+              <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.5)', fontSize: 14, letterSpacing: 1 }}>SAVE DRAFT</Text>
+            </TouchableOpacity>
+            
+            <TouchableOpacity
+              onPress={() => createMutation.mutate(true)}
+              disabled={!canSubmit}
+              style={{ 
+                flex: 1.5, 
+                height: 64, 
+                borderRadius: 24, 
+                backgroundColor: '#FF6B35', 
+                alignItems: 'center', 
+                justifyContent: 'center',
+                shadowColor: '#FF6B35',
+                shadowOpacity: 0.3,
+                shadowRadius: 15,
+                shadowOffset: { width: 0, height: 8 },
+                elevation: 6
+              }}
             >
               {createMutation.isPending || uploading ? (
                 <ActivityIndicator color="white" />
               ) : (
-                <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }} className="text-white uppercase tracking-widest">
-                  {isEdit ? 'Update' : 'Publish Now'}
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 14, letterSpacing: 1 }}>
+                  {isEdit ? 'UPDATE ITEM' : 'PUBLISH NOW'}
                 </Text>
               )}
             </TouchableOpacity>
           </View>
         </SafeAreaView>
       </LinearGradient>
+      )}
     </View>
   );
 }

@@ -11,6 +11,8 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { apiClient } from '../../src/lib/apiClient';
 import { FollowButton } from '../../src/components/FollowButton';
 import { EmptyState } from '../../src/components/EmptyState';
+import { COLORS } from '../../src/constants/theme';
+import ModeSwitchOverlay from '../components/ModeSwitchOverlay';
 
 export default function FollowsScreen() {
   const router = useRouter();
@@ -29,69 +31,74 @@ export default function FollowsScreen() {
     .filter(Boolean);
 
   const renderItem = ({ item }: { item: any }) => (
-    <View className="flex-row items-center justify-between px-5 h-14 border-b border-white/5">
+    <View className="flex-row items-center justify-between px-6 py-4 border-b border-white/5 bg-white/2">
       <TouchableOpacity
-        className="flex-row items-center flex-1"
+        className="flex-row items-center flex-1 mr-4"
         onPress={() => router.push(`/profile/${item.id}` as any)}
+        activeOpacity={0.7}
       >
-        {item.avatar_url ? (
-          <Image source={{ uri: item.avatar_url }} style={{ width: 48, height: 48, borderRadius: 24 }} />
-        ) : (
-          <View style={{ width: 48, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center' }}>
-            <Ionicons name="person" size={24} color="rgba(255,255,255,0.4)" />
-          </View>
-        )}
-        <View className="ml-4">
-          <Text className="text-white font-bold text-base" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
+        <LinearGradient
+          colors={[COLORS.primary, '#FF9F6A']}
+          style={{ width: 48, height: 48, borderRadius: 24, padding: 2 }}
+        >
+          {item.avatar_url ? (
+            <Image source={{ uri: item.avatar_url }} style={{ width: '100%', height: '100%', borderRadius: 22 }} />
+          ) : (
+            <View className="flex-1 rounded-full bg-black items-center justify-center">
+              <Ionicons name="person" size={20} color={COLORS.primary} />
+            </View>
+          )}
+        </LinearGradient>
+        <View className="ml-4 flex-1">
+          <Text className="text-white text-[15px] font-h-bold mb-0.5" numberOfLines={1}>
             {item.username || item.full_name || 'User'}
           </Text>
-          <Text className="text-white/50 text-xs" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}>
-            {item.full_name || 'No bio available'}
+          <Text className="text-white/40 text-[12px] font-h-light" numberOfLines={1}>
+            {item.full_name || 'Fashion Enthusiast'}
           </Text>
         </View>
       </TouchableOpacity>
-      <View style={{ width: 100 }}>
+      <View style={{ width: 110 }}>
         <FollowButton userId={item.id} />
       </View>
     </View>
   );
 
   return (
-    <View className="flex-1 bg-black">
+    <View style={{ flex: 1, backgroundColor: '#000' }}>
       <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
-        <SafeAreaView className="flex-1" edges={['top']}>
+        <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           {/* Header */}
-          <View className="flex-row items-center px-5 h-14 border-b border-white/10">
-            <TouchableOpacity onPress={() => router.back()} className="p-1 mr-3">
-              <Ionicons name="arrow-back" size={24} color="white" />
+          <View style={{ flexDirection: 'row', alignItems: 'center', height: 60, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.08)' }} className="px-4">
+            <TouchableOpacity onPress={() => router.back()} className="p-2 mr-3">
+              <Ionicons name="chevron-back" size={26} color="white" />
             </TouchableOpacity>
-            <Text className="text-white text-lg font-bold" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
-              Connections
-            </Text>
+            <Text className="text-white text-[18px] font-h-bold">Connections</Text>
           </View>
 
           {/* Tabs */}
-          <View className="flex-row px-5 mt-4 mb-2">
+          <View className="flex-row px-6 mt-6 mb-4 bg-white/5 mx-6 rounded-2xl p-1 border border-white/10">
             {(['followers', 'following'] as const).map((t) => (
               <TouchableOpacity
                 key={t}
                 onPress={() => setActiveTab(t)}
-                className={`flex-1 h-14 items-center border-b-2 ${activeTab === t ? 'border-[#FF6B35]' : 'border-transparent'}`}
+                className={`flex-1 py-3 items-center rounded-xl ${activeTab === t ? 'bg-white/10' : ''}`}
+                activeOpacity={0.7}
               >
-                <Text
-                  className={`capitalize text-sm ${activeTab === t ? 'text-white font-bold' : 'text-white/40'}`}
-                  style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: activeTab === t ? 'HelveticaNeue-Bold' : 'HelveticaNeue' }}
-                >
-                  {t}
-                </Text>
+                <View className="flex-row items-center gap-2">
+                  {activeTab === t && <View className="w-1.5 h-1.5 rounded-full bg-primary" />}
+                  <Text
+                    className={`capitalize text-[13px] ${activeTab === t ? 'text-white font-h-bold' : 'text-white/40 font-h-medium'}`}
+                  >
+                    {t}
+                  </Text>
+                </View>
               </TouchableOpacity>
             ))}
           </View>
 
           {isLoading ? (
-            <View className="flex-1 justify-center items-center">
-              <ActivityIndicator color="#FF6B35" size="large" />
-            </View>
+            <ModeSwitchOverlay />
           ) : (
             <FlatList
               data={list}

@@ -13,6 +13,8 @@ import { LikeButton } from '../../src/components/LikeButton';
 import { FollowButton } from '../../src/components/FollowButton';
 import { useAuthStore } from '../../src/stores/authStore';
 import { ReportModal } from '../../src/components/ReportModal';
+import { COLORS } from '../../src/constants/theme';
+import ModeSwitchOverlay from '../components/ModeSwitchOverlay';
 
 // ─── helpers ────────────────────────────────────────────────────────────────
 function timeAgo(iso: string) {
@@ -37,40 +39,43 @@ function CommentRow({
 }) {
   const user = comment.user ?? comment.profiles ?? {};
   return (
-    <View style={{ flexDirection: 'row', marginBottom: 14, marginLeft: isReply ? 44 : 0 }}>
+    <View style={{ flexDirection: 'row', marginBottom: 20, marginLeft: isReply ? 44 : 0 }}>
       {/* Avatar */}
-      {user.avatar_url ? (
-        <Image source={{ uri: user.avatar_url }} style={{ width: 32, height: 32, borderRadius: 16, marginTop: 2 }} />
-      ) : (
-        <View style={{ width: 32, height: 32, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.1)', alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
-          <Ionicons name="person" size={14} color="rgba(255,255,255,0.5)" />
-        </View>
-      )}
+      <TouchableOpacity onPress={() => {}} activeOpacity={0.7}>
+        {user.avatar_url ? (
+          <Image source={{ uri: user.avatar_url }} style={{ width: 34, height: 34, borderRadius: 17, marginTop: 2 }} />
+        ) : (
+          <View style={{ width: 34, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center', marginTop: 2 }}>
+            <Ionicons name="person" size={14} color="rgba(255,255,255,0.3)" />
+          </View>
+        )}
+      </TouchableOpacity>
 
       {/* Body */}
-      <View style={{ flex: 1, marginLeft: 10 }}>
-        <Text style={{ fontFamily: 'HelveticaNeue', color: '#fff', fontSize: 14, lineHeight: 20 }}>
-          <Text style={{ fontFamily: 'HelveticaNeue-Bold' }}>
-            {user.username ?? user.full_name ?? 'User'}{' '}
+      <View style={{ flex: 1, marginLeft: 12 }}>
+        <View className="bg-white/3 rounded-2xl p-4 border border-white/5">
+          <Text className="text-white/90 text-[14px] font-h-light leading-6">
+            <Text className="font-h-bold">
+              {user.username ?? user.full_name ?? 'User'}{' '}
+            </Text>
+            {comment.content ?? comment.body ?? ''}
           </Text>
-          {comment.content ?? comment.body ?? ''}
-        </Text>
+        </View>
 
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 5, gap: 14 }}>
-          <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>
+        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 6, marginLeft: 4, gap: 16 }}>
+          <Text className="text-white/30 text-[11px] font-h-light">
             {comment.created_at ? timeAgo(comment.created_at) : ''}
           </Text>
-          {/* Only top-level comments get a Reply button (max 1 level) */}
           {!isReply && (
             <TouchableOpacity onPress={() => onReply(comment.id, user.username ?? 'User')}>
-              <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: 'rgba(255,255,255,0.4)', fontSize: 11 }}>
+              <Text className="text-white/50 text-[11px] font-h-bold uppercase tracking-wider">
                 Reply
               </Text>
             </TouchableOpacity>
           )}
           {(comment.user_id ?? comment.profiles?.id) === currentUserId && (
             <TouchableOpacity onPress={() => onDelete(comment.id)}>
-              <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: 'rgba(255,80,80,0.5)', fontSize: 11 }}>
+              <Text className="text-primary/60 text-[11px] font-h-bold uppercase tracking-wider">
                 Delete
               </Text>
             </TouchableOpacity>
@@ -177,136 +182,142 @@ export default function PostDetailScreen() {
     ]);
   };
 
-  // ── Loading / not found ───────────────────────────────────────────────────
-  if (postLoading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
-        <ActivityIndicator color="#FF6B35" size="large" />
-      </View>
-    );
-  }
-
-  if (!post) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
-        <Text style={{ fontFamily: 'HelveticaNeue', color: '#fff' }}>Post not found.</Text>
-        <TouchableOpacity onPress={goBackFromPost} style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 999 }}>
-          <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff' }}>Go back</Text>
-        </TouchableOpacity>
-      </View>
-    );
-  }
-
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
-      <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
+      {postLoading ? (
+        <ModeSwitchOverlay />
+      ) : !post ? (
+        <View style={{ flex: 1, backgroundColor: '#000', alignItems: 'center', justifyContent: 'center' }}>
+          <Text style={{ fontFamily: 'HelveticaNeue', color: '#fff' }}>Post not found.</Text>
+          <TouchableOpacity onPress={goBackFromPost} style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 999 }}>
+            <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff' }}>Go back</Text>
+          </TouchableOpacity>
+        </View>
+      ) : (
+        <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           {/* ── Header bar ── */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.1)' }}>
+          <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, height: 60 }}>
             <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-              <TouchableOpacity onPress={goBackFromPost} style={{ marginRight: 14 }}>
-                <Ionicons name="arrow-back" size={24} color="white" />
+              <TouchableOpacity onPress={goBackFromPost} style={{ padding: 4, marginRight: 12 }}>
+                <Ionicons name="chevron-back" size={28} color="white" />
               </TouchableOpacity>
-              <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 17 }}>Post</Text>
+              <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10 }}>
+                <Image 
+                  source={require('../../assets/logo/wearism-short-w.png')} 
+                  style={{ width: 22, height: 22 }} 
+                  resizeMode="contain" 
+                />
+                <Text className="text-white text-[17px] font-h-bold">Discussion</Text>
+              </View>
             </View>
-            <View style={{ flexDirection: 'row', alignItems: 'center', gap: 18 }}>
-              {post.user_id === currentUserId && (
-                <TouchableOpacity onPress={handleDeletePost}>
-                  <Ionicons name="trash-outline" size={22} color="rgba(255,255,255,0.55)" />
-                </TouchableOpacity>
-              )}
-              <TouchableOpacity onPress={() => setReportVisible(true)}>
-                <Ionicons name="ellipsis-horizontal" size={22} color="rgba(255,255,255,0.8)" />
-              </TouchableOpacity>
-            </View>
+            <TouchableOpacity onPress={() => setReportVisible(true)} style={{ padding: 4 }}>
+              <Ionicons name="ellipsis-horizontal" size={22} color="rgba(255,255,255,0.6)" />
+            </TouchableOpacity>
           </View>
 
-          <KeyboardAvoidingView style={{ flex: 1 }} behavior={Platform.OS === 'ios' ? 'padding' : undefined} keyboardVerticalOffset={0}>
+          <KeyboardAvoidingView 
+            style={{ flex: 1 }} 
+            behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+          >
             <ScrollView showsVerticalScrollIndicator={false} keyboardShouldPersistTaps="handled" contentContainerStyle={{ paddingBottom: 24 }}>
-
-              {/* ── 1. Full-width post image ── */}
-              {post.image_url ? (
-                <Image
-                  source={{ uri: post.image_url }}
-                  style={{ width: '100%', aspectRatio: 4 / 5, backgroundColor: 'rgba(255,255,255,0.05)' }}
-                  resizeMode="cover"
-                />
-              ) : (
-                <View style={{ width: '100%', height: 300, backgroundColor: 'rgba(255,255,255,0.04)', alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="image-outline" size={48} color="rgba(255,255,255,0.15)" />
-                </View>
-              )}
-
-              {/* ── 2. Author row ── */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 12 }}>
+              
+              {/* ── 1. Author row (Top) ── */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 12 }}>
                 <TouchableOpacity
                   style={{ flexDirection: 'row', alignItems: 'center', flex: 1 }}
                   onPress={() => router.push(`/profile/${author.id}` as any)}
                   activeOpacity={0.8}
                 >
-                  {author.avatar_url ? (
-                    <Image source={{ uri: author.avatar_url }} style={{ width: 40, height: 40, borderRadius: 20 }} />
-                  ) : (
-                    <View style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.15)', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="person" size={20} color="rgba(255,255,255,0.5)" />
-                    </View>
-                  )}
+                  <LinearGradient
+                    colors={[COLORS.primary, '#FF9F6A']}
+                    style={{ width: 38, height: 38, borderRadius: 19, padding: 1.5 }}
+                  >
+                    {author.avatar_url ? (
+                      <Image source={{ uri: author.avatar_url }} style={{ width: '100%', height: '100%', borderRadius: 17.5 }} />
+                    ) : (
+                      <View style={{ width: '100%', height: '100%', borderRadius: 17.5, backgroundColor: 'black', alignItems: 'center', justifyContent: 'center' }}>
+                        <Ionicons name="person" size={16} color={COLORS.primary} />
+                      </View>
+                    )}
+                  </LinearGradient>
                   <View style={{ marginLeft: 12 }}>
-                    <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 15 }}>
+                    <Text className="text-white text-[14px] font-h-bold">
                       {author.username ?? author.full_name ?? 'User'}
                     </Text>
-                    {post.location ? (
-                      <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.5)', fontSize: 12 }}>{post.location}</Text>
-                    ) : null}
+                    {post.location && (
+                      <Text className="text-white/40 text-[10px] font-h-light mt-0.5">{post.location}</Text>
+                    )}
                   </View>
                 </TouchableOpacity>
-                {author.id && <FollowButton userId={author.id} />}
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
+                  {author.id && author.id !== currentUserId && <FollowButton userId={author.id} />}
+                  {post.user_id === currentUserId && (
+                    <TouchableOpacity onPress={handleDeletePost} style={{ padding: 4 }}>
+                      <Ionicons name="trash-outline" size={20} color="rgba(255,255,255,0.3)" />
+                    </TouchableOpacity>
+                  )}
+                </View>
               </View>
 
-              {/* ── 3. Caption ── */}
-              {post.caption ? (
-                <View style={{ paddingHorizontal: 20, paddingBottom: 12 }}>
-                  <Text style={{ fontFamily: 'HelveticaNeue', color: '#fff', fontSize: 14, lineHeight: 21 }}>
-                    <Text style={{ fontFamily: 'HelveticaNeue-Bold' }}>{author.username ?? 'User'} </Text>
-                    {post.caption}
-                  </Text>
-                  <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 6 }}>
-                    {post.created_at ? timeAgo(post.created_at) + ' ago' : ''}
-                  </Text>
-                </View>
-              ) : null}
+              {/* ── 2. Full-width post image ── */}
+              <View style={{ overflow: 'hidden', borderRadius: 0 }}>
+                {post.image_url ? (
+                  <Image
+                    source={{ uri: post.image_url }}
+                    style={{ width: '100%', aspectRatio: 0.8, backgroundColor: 'transparent' }}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <View style={{ width: '100%', aspectRatio: 1, backgroundColor: 'transparent', alignItems: 'center', justifyContent: 'center' }}>
+                    <Ionicons name="image-outline" size={48} color="rgba(255,255,255,0.15)" />
+                  </View>
+                )}
+              </View>
 
-              {/* ── 4. Action row ── */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, paddingVertical: 10, borderTopWidth: 0.5, borderBottomWidth: 0.5, borderColor: 'rgba(255,255,255,0.08)' }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 20 }}>
-                  <LikeButton post={post} size={26} showCount />
+              {/* ── 3. Action row ── */}
+              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 16, paddingVertical: 14 }}>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 24 }}>
+                  <LikeButton post={post} size={28} showCount />
                   <TouchableOpacity style={{ flexDirection: 'row', alignItems: 'center' }} activeOpacity={0.7}>
-                    <Ionicons name="chatbubble-outline" size={24} color="rgba(255,255,255,0.7)" />
+                    <Ionicons name="chatbubble-outline" size={26} color="rgba(255,255,255,0.9)" />
                     {post.comments_count > 0 && (
-                      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.55)', fontSize: 13, marginLeft: 6 }}>
+                      <Text className="text-white/60 text-[14px] font-h-medium ml-2">
                         {post.comments_count}
                       </Text>
                     )}
                   </TouchableOpacity>
                   <TouchableOpacity activeOpacity={0.7}>
-                    <Ionicons name="paper-plane-outline" size={24} color="rgba(255,255,255,0.7)" />
+                    <Ionicons name="paper-plane-outline" size={26} color="rgba(255,255,255,0.9)" />
                   </TouchableOpacity>
                 </View>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 16 }}>
-                  <TouchableOpacity activeOpacity={0.7}>
-                    <Ionicons name="bookmark-outline" size={24} color="rgba(255,255,255,0.7)" />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => setReportVisible(true)} activeOpacity={0.7}>
-                    <Ionicons name="ellipsis-horizontal" size={22} color="rgba(255,255,255,0.5)" />
-                  </TouchableOpacity>
-                </View>
+                <TouchableOpacity activeOpacity={0.7}>
+                  <Ionicons name="bookmark-outline" size={26} color="rgba(255,255,255,0.9)" />
+                </TouchableOpacity>
               </View>
 
+              {/* ── 4. Caption ── */}
+              {post.caption ? (
+                <View style={{ paddingHorizontal: 16, paddingBottom: 20 }}>
+                  <Text className="text-white/90 text-[15px] font-h-light leading-6">
+                    <Text className="font-h-bold">{author.username ?? 'User'} </Text>
+                    {post.caption}
+                  </Text>
+                  <Text className="text-white/20 text-[11px] font-h-light uppercase tracking-widest mt-4">
+                    {post.created_at ? timeAgo(post.created_at) + ' AGO' : ''}
+                  </Text>
+                </View>
+              ) : null}
+
               {/* ── 5. Comments section ── */}
-              <View style={{ paddingHorizontal: 20, paddingTop: 20, paddingBottom: 8 }}>
-                <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: 'rgba(255,255,255,0.5)', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1, marginBottom: 16 }}>
-                  Comments
-                </Text>
+              <View style={{ paddingHorizontal: 16, paddingTop: 10 }}>
+                <View className="flex-row items-center mb-8">
+                  <View className="flex-1 h-[0.5px] bg-white/10" />
+                  <Text className="text-white/30 text-[10px] font-h-bold uppercase tracking-[3px] mx-4">
+                    Discussion
+                  </Text>
+                  <View className="flex-1 h-[0.5px] bg-white/10" />
+                </View>
 
                 {commentsLoading ? (
                   <ActivityIndicator color="#FF6B35" style={{ alignSelf: 'flex-start' }} />
@@ -342,37 +353,35 @@ export default function PostDetailScreen() {
             </ScrollView>
 
             {/* ── Comment input bar ── */}
-            <View style={{ borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.1)', backgroundColor: 'rgba(0,0,0,0.8)', paddingHorizontal: 16, paddingTop: 10, paddingBottom: Platform.OS === 'ios' ? 28 : 12 }}>
+            <View className="bg-black/90 border-t border-white/10 px-4 pt-3 pb-8">
               {replyTo && (
-                <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 10, paddingHorizontal: 12, paddingVertical: 6, marginBottom: 8 }}>
-                  <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.6)', fontSize: 12 }}>
-                    Replying to{' '}
-                    <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: 'rgba(255,255,255,0.8)' }}>
-                      @{replyTo.username}
-                    </Text>
+                <View className="flex-row items-center justify-between bg-primary/10 border border-primary/20 rounded-xl px-4 py-2 mb-3">
+                  <Text className="text-primary/80 text-[12px] font-h-light">
+                    Replying to <Text className="font-h-bold">@{replyTo.username}</Text>
                   </Text>
-                  <TouchableOpacity onPress={() => setReplyTo(null)} hitSlop={{ top: 8, bottom: 8, left: 8, right: 8 }}>
-                    <Ionicons name="close-circle" size={16} color="rgba(255,255,255,0.4)" />
+                  <TouchableOpacity onPress={() => setReplyTo(null)} className="p-1">
+                    <Ionicons name="close-circle" size={18} color={COLORS.primary} className="opacity-60" />
                   </TouchableOpacity>
                 </View>
               )}
-              <View style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.07)', borderRadius: 999, borderWidth: 0.5, borderColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 16, minHeight: 44 }}>
+              <View className="flex-row items-center bg-white/5 border border-white/10 rounded-2xl px-4 min-h-[50px]">
                 <TextInput
                   value={commentText}
                   onChangeText={setCommentText}
-                  placeholder="Add a comment…"
-                  placeholderTextColor="rgba(255,255,255,0.35)"
-                  style={{ flex: 1, fontFamily: 'HelveticaNeue', color: '#fff', fontSize: 14, paddingVertical: 10 }}
+                  placeholder="Share your thoughts..."
+                  placeholderTextColor="rgba(255,255,255,0.25)"
+                  className="flex-1 text-white text-[15px] font-h-light py-3"
+                  multiline
                 />
                 <TouchableOpacity
                   onPress={() => { if (commentText.trim()) postCommentMutation.mutate(); }}
                   disabled={!commentText.trim() || postCommentMutation.isPending}
-                  style={{ paddingLeft: 10 }}
+                  className="pl-3"
                 >
                   {postCommentMutation.isPending ? (
-                    <ActivityIndicator size="small" color="#FF6B35" />
+                    <ActivityIndicator size="small" color={COLORS.primary} />
                   ) : (
-                    <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: commentText.trim() ? '#FF6B35' : 'rgba(255,107,53,0.3)', fontSize: 15 }}>
+                    <Text className={`text-[15px] font-h-bold ${commentText.trim() ? 'text-primary' : 'text-white/20'}`}>
                       Post
                     </Text>
                   )}
@@ -386,6 +395,7 @@ export default function PostDetailScreen() {
           )}
         </SafeAreaView>
       </LinearGradient>
+      )}
     </View>
   );
 }

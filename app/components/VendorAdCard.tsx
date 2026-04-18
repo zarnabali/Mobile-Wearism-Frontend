@@ -2,6 +2,7 @@ import React from 'react';
 import { View, Text, ImageBackground, TouchableOpacity } from 'react-native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { COLORS } from '../../src/constants/theme';
 
 interface VendorAd {
     id: string;
@@ -21,166 +22,87 @@ interface VendorAdCardProps {
 
 const VendorAdCard: React.FC<VendorAdCardProps> = ({ ad, onPress, onShopNow, onViewMore }) => {
     return (
-        <View style={{ marginBottom: 6 }}>
-            {/* Sponsored Label */}
-            <View style={{ paddingHorizontal: 20, paddingVertical: 8 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                    <Ionicons name="megaphone" size={14} color="rgba(255,255,255,0.5)" style={{ marginRight: 6 }} />
-                    <Text
-                        style={{
-                            fontSize: 12,
-                            fontFamily: 'HelveticaNeue',
-                            color: 'rgba(255,255,255,0.5)',
-                            letterSpacing: 0.5,
-                        }}
-                    >
-                        SPONSORED
-                    </Text>
-                </View>
-            </View>
-
+        <View className="mx-3 rounded-2xl overflow-hidden bg-white/5 border border-white/10">
             {/* Ad Card Header */}
-            <View style={{ paddingHorizontal: 20, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
+            <View className="px-4 py-3 flex-row items-center justify-between">
+                <View className="flex-row items-center">
                     <LinearGradient
-                        colors={['#FF6B35', '#3C0008']}
+                        colors={[COLORS.primary, '#FF9F6A']}
                         style={{
-                            width: 38,
-                            height: 38,
-                            borderRadius: 19,
-                            padding: 2,
+                            width: 32,
+                            height: 32,
+                            borderRadius: 16,
+                            padding: 1.5,
                         }}
                     >
-                        <View
-                            style={{
-                                width: '100%',
-                                height: '100%',
-                                borderRadius: 17,
-                                backgroundColor: '#FF6B35',
-                                justifyContent: 'center',
-                                alignItems: 'center',
-                            }}
-                        >
-                            <Ionicons name="storefront" size={20} color="#fff" />
+                        <View className="flex-1 rounded-full bg-black items-center justify-center">
+                            <Ionicons name="storefront" size={16} color={COLORS.primary} />
                         </View>
                     </LinearGradient>
-                    <View style={{ marginLeft: 12 }}>
-                        <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                            <Text
-                                style={{
-                                    fontSize: 15,
-                                    fontFamily: 'HelveticaNeue-Bold',
-                                    color: '#fff',
-                                    marginRight: 4,
-                                }}
-                            >
+                    <View className="ml-3">
+                        <View className="flex-row items-center">
+                            <Text className="text-white text-[14px] font-h-bold mr-1">
                                 {ad.brandName}
                             </Text>
                             {ad.isVerified && (
-                                <Ionicons name="checkmark-circle" size={16} color="#FF6B35" />
+                                <Ionicons name="checkmark-circle" size={14} color={COLORS.primary} />
                             )}
                         </View>
-                        <Text
-                            style={{
-                                fontSize: 12,
-                                fontFamily: 'HelveticaNeue',
-                                color: 'rgba(255,255,255,0.6)',
-                            }}
-                        >
+                        <Text className="text-white/40 text-[11px] font-h-light">
                             Sponsored
                         </Text>
                     </View>
                 </View>
-                <TouchableOpacity>
-                    <Ionicons name="ellipsis-horizontal" size={24} color="white" />
+                <TouchableOpacity activeOpacity={0.7}>
+                    <Ionicons name="ellipsis-horizontal" size={20} color="rgba(255,255,255,0.4)" />
                 </TouchableOpacity>
             </View>
 
             {/* Product Image */}
-            <TouchableOpacity activeOpacity={0.95} onPress={onPress}>
+            <TouchableOpacity activeOpacity={0.9} onPress={onPress}>
                 <ImageBackground
                     source={ad.productImage}
-                    style={{ width: '100%', height: 420 }}
-                    imageStyle={{ opacity: 0.96 }}
+                    style={{ width: '100%', height: 380 }}
                 >
                     <LinearGradient
-                        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.6)']}
+                        colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.8)']}
                         style={{ flex: 1, justifyContent: 'flex-end', padding: 16 }}
                     >
-                        <View
-                            style={{
-                                backgroundColor: 'rgba(0,0,0,0.6)',
-                                borderRadius: 16,
-                                padding: 12,
-                                borderWidth: 1,
-                                borderColor: 'rgba(255,107,53,0.3)',
-                            }}
-                        >
-                            <Text
-                                style={{
-                                    fontSize: 18,
-                                    fontFamily: 'HelveticaNeue-Bold',
-                                    color: '#fff',
-                                    marginBottom: 4,
-                                }}
+                        <View className="flex-row items-end justify-between">
+                            <View className="flex-1 mr-4">
+                                <Text className="text-white text-[18px] font-h-bold mb-1" numberOfLines={1}>
+                                    {ad.productName}
+                                </Text>
+                                <Text className="text-primary text-[20px] font-h-heavy">
+                                    {ad.price}
+                                </Text>
+                            </View>
+                            <TouchableOpacity
+                                onPress={onShopNow ?? onPress}
+                                className="bg-primary px-6 py-2.5 rounded-full"
+                                activeOpacity={0.8}
                             >
-                                {ad.productName}
-                            </Text>
-                            <Text
-                                style={{
-                                    fontSize: 22,
-                                    fontFamily: 'HelveticaNeue-Bold',
-                                    color: '#FF6B35',
-                                }}
-                            >
-                                {ad.price}
-                            </Text>
+                                <Text className="text-white text-[14px] font-h-bold">
+                                    Shop Now
+                                </Text>
+                            </TouchableOpacity>
                         </View>
                     </LinearGradient>
                 </ImageBackground>
             </TouchableOpacity>
 
-            {/* Ad Actions */}
-            <View style={{ paddingHorizontal: 20, paddingTop: 12 }}>
-                <View style={{ flexDirection: 'row', gap: 8 }}>
-                    <TouchableOpacity
-                        onPress={onShopNow ?? onPress}
-                        disabled={!onShopNow && !onPress}
-                        style={{
-                            flex: 1,
-                            backgroundColor: '#FF6B35',
-                            borderRadius: 12,
-                            paddingVertical: 12,
-                            alignItems: 'center',
-                            opacity: (!onShopNow && !onPress) ? 0.5 : 1,
-                        }}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={{ fontSize: 15, fontFamily: 'HelveticaNeue-Bold', color: '#fff' }}>
-                            Shop Now
-                        </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                        onPress={onViewMore}
-                        disabled={!onViewMore}
-                        style={{
-                            flex: 1,
-                            backgroundColor: 'rgba(255,255,255,0.1)',
-                            borderRadius: 12,
-                            borderWidth: 1,
-                            borderColor: 'rgba(255,255,255,0.2)',
-                            paddingVertical: 12,
-                            alignItems: 'center',
-                            opacity: onViewMore ? 1 : 0.5,
-                        }}
-                        activeOpacity={0.8}
-                    >
-                        <Text style={{ fontSize: 15, fontFamily: 'HelveticaNeue-Bold', color: '#fff' }}>
-                            View More
-                        </Text>
-                    </TouchableOpacity>
-                </View>
-            </View>
+            {/* View More Link */}
+            {onViewMore && (
+                <TouchableOpacity 
+                    onPress={onViewMore}
+                    className="py-3 items-center border-t border-white/5"
+                    activeOpacity={0.7}
+                >
+                    <Text className="text-white/60 text-[13px] font-h-medium">
+                        View Store Profile
+                    </Text>
+                </TouchableOpacity>
+            )}
         </View>
     );
 };

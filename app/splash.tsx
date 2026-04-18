@@ -3,10 +3,12 @@ import {
   View,
   Text,
   TouchableOpacity,
+  Image,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Link } from 'expo-router';
 import ImageCarousel, { CarouselItem } from './components/ImageCarousel';
+import { COLORS } from '../src/constants/theme';
 
 // Carousel data with background images and text
 const carouselData: CarouselItem[] = [
@@ -56,14 +58,13 @@ const SplashScreen = () => {
       {/* Allow touches on children while keeping overlay positioning */}
       <SafeAreaView className="absolute inset-0" pointerEvents="box-none">
         <View className="flex-1">
-          {/* Header with App Name - Top */}
+          {/* Header with App Logo - Top */}
           <View className="px-6 pt-8 pointer-events-auto">
-            <Text
-              className="text-white text-3xl font-light"
-              style={{ fontFamily: 'HelveticaNeue-Light' }}
-            >
-              Wearism
-            </Text>
+            <Image
+              source={require('../assets/logo/wearism-w.png')}
+              style={{ width: 120, height: 40 }}
+              resizeMode="contain"
+            />
           </View>
 
           {/* Spacer to push content to bottom */}
@@ -75,13 +76,11 @@ const SplashScreen = () => {
             <View className="space-y-6">
               <Link href="/login" asChild>
                 <TouchableOpacity
-                  className="bg-orange-500 py-4 rounded-full"
+                  className="bg-primary py-4 rounded-full"
                   activeOpacity={0.8}
-                  style={{ backgroundColor: '#FF6B35' }}
                 >
                   <Text
-                    className="text-white text-center text-lg font-medium"
-                    style={{ fontFamily: 'HelveticaNeue-Medium' }}
+                    className="text-white text-center text-lg font-h-medium"
                   >
                     Login
                   </Text>
@@ -90,13 +89,11 @@ const SplashScreen = () => {
 
               <Link href="/signup" asChild>
                 <TouchableOpacity
-                  className="py-4 border-2 border-orange-400 rounded-full mt-2"
+                  className="py-4 border-2 border-primary rounded-full mt-2"
                   activeOpacity={0.8}
-                  style={{ borderColor: '#FF6B35' }}
                 >
                   <Text
-                    className="text-orange-400 text-center text-lg font-medium"
-                    style={{ fontFamily: 'HelveticaNeue-Medium', color: '#FF6B35' }}
+                    className="text-primary text-center text-lg font-h-medium"
                   >
                     Create an Account
                   </Text>

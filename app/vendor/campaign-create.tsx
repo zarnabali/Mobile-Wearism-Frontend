@@ -10,6 +10,7 @@ import {
   ActivityIndicator,
   KeyboardAvoidingView,
   Platform,
+  Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -18,6 +19,7 @@ import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import * as ImagePicker from 'expo-image-picker';
 import { apiClient } from '../../src/lib/apiClient';
+import ModeSwitchOverlay from '../components/ModeSwitchOverlay';
 
 type VendorProduct = {
   id: string;
@@ -27,6 +29,8 @@ type VendorProduct = {
   stock_quantity?: number;
   status?: string;
 };
+
+const { width } = Dimensions.get('window');
 
 export default function CampaignCreateScreen() {
   const router = useRouter();
@@ -54,10 +58,7 @@ export default function CampaignCreateScreen() {
     queryFn: () => apiClient.get('/vendors/me/products').then((r) => r.data),
   });
 
-  // Backend returns `{ success, products }` or raw array depending on route impl; support both.
-  const products: VendorProduct[] = Array.isArray(productsRes)
-    ? productsRes
-    : (productsRes?.products ?? []);
+  const products: VendorProduct[] = productsRes?.products ?? (Array.isArray(productsRes) ? productsRes : []);
 
   const initialSnapshot = useMemo(() => {
     if (!existingCampaign) return null;
@@ -98,11 +99,7 @@ export default function CampaignCreateScreen() {
     const form = new FormData();
     const ext = uri.split('.').pop()?.toLowerCase();
     const name = `cover_${Date.now()}.${ext && ext.length <= 5 ? ext : 'jpg'}`;
-    const type =
-      ext === 'png' ? 'image/png' :
-      ext === 'webp' ? 'image/webp' :
-      'image/jpeg';
-
+    const type = ext === 'png' ? 'image/png' : ext === 'webp' ? 'image/webp' : 'image/jpeg';
     form.append('file', { uri, name, type } as any);
     return form;
   }
@@ -119,335 +116,216 @@ export default function CampaignCreateScreen() {
   const createOrUpdateMutation = useMutation({
     mutationFn: async () => {
       const hasLocalCover = !!coverUrl && !coverUrl.startsWith('http');
-
       const payload: any = {
         title: title.trim(),
         motive: motive.trim() || undefined,
         description: description.trim() || undefined,
         status,
         product_ids: Array.from(selected),
-        // If we already have a hosted URL, persist it directly.
         cover_image_url: coverUrl && coverUrl.startsWith('http') ? coverUrl : undefined,
       };
-
       if (!payload.title) throw new Error('Title is required.');
       if (payload.product_ids.length === 0) throw new Error('Select at least 1 product.');
 
       if (isEdit) {
         const res = await apiClient.patch(`/campaigns/${id}`, payload);
         let campaign = res.data.campaign;
-
         if (hasLocalCover && coverUrl) {
           const form = buildImageFormData(coverUrl);
-          const up = await apiClient.post(`/campaigns/${id}/cover`, form, {
-            headers: { 'Content-Type': 'multipart/form-data' },
-          });
+          const up = await apiClient.post(`/campaigns/${id}/cover`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
           campaign = up.data.campaign;
         }
-
         return campaign;
       }
       const res = await apiClient.post('/campaigns', payload);
       let campaign = res.data.campaign;
-
       if (hasLocalCover && coverUrl) {
         const form = buildImageFormData(coverUrl);
-        const up = await apiClient.post(`/campaigns/${campaign.id}/cover`, form, {
-          headers: { 'Content-Type': 'multipart/form-data' },
-        });
+        const up = await apiClient.post(`/campaigns/${campaign.id}/cover`, form, { headers: { 'Content-Type': 'multipart/form-data' } });
         campaign = up.data.campaign;
       }
-
       return campaign;
     },
-    onSuccess: (campaign: any) => {
+    onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['vendor-campaigns'] });
-      if (campaign?.cover_image_url) setCoverUrl(campaign.cover_image_url);
-      Alert.alert('Saved', 'Campaign saved.');
+      Alert.alert('Saved', 'Campaign updated successfully.');
       router.back();
     },
-    onError: (err: any) => {
-      Alert.alert('Error', err.message || err.response?.data?.error || 'Could not save campaign.');
-    },
+    onError: (err: any) => Alert.alert('Error', err.message || 'Could not save campaign.'),
   });
 
   const isBusy = createOrUpdateMutation.isPending || loadingExisting || loadingProducts;
-  const selectedCount = selected.size;
 
   return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
-      <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
-        <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+      {isBusy ? (
+        <ModeSwitchOverlay />
+      ) : (
+        <LinearGradient colors={['rgba(30,0,4,1)', 'rgba(0,0,0,1)']} style={{ flex: 1 }}>
+          <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           {/* Header */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 16, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.1)' }}>
-            <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 14 }}>
-              <Ionicons name="arrow-back" size={24} color="white" />
+          <View className="px-6 pt-6 pb-8 flex-row items-center">
+            <TouchableOpacity onPress={() => router.back()} activeOpacity={0.7} style={{ width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}>
+              <Ionicons name="chevron-back" size={22} color="white" />
             </TouchableOpacity>
-            <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 20 }}>
-              {isEdit ? 'Edit Campaign' : 'New Campaign'}
-            </Text>
+            <View className="ml-5">
+              <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.8)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 2 }}>Campaigns</Text>
+              <Text style={{ fontFamily: 'HelveticaNeue-Thin', color: '#fff', fontSize: 32, marginTop: 4, letterSpacing: -0.5 }}>{isEdit ? 'Edit Campaign' : 'New Campaign'}</Text>
+            </View>
           </View>
 
           <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-            <ScrollView contentContainerStyle={{ padding: 20, paddingBottom: 140 }} showsVerticalScrollIndicator={false}>
-              {/* Cover */}
-              <Text style={{ fontSize: 12, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.5)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 12 }}>
-                Cover
-              </Text>
+            <ScrollView contentContainerStyle={{ padding: 24, paddingBottom: 160 }} showsVerticalScrollIndicator={false}>
+              
+              {/* Cover Picker */}
               <TouchableOpacity
                 onPress={pickCover}
-                activeOpacity={0.8}
-                style={{
-                  height: 180,
-                  borderRadius: 18,
-                  overflow: 'hidden',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,107,53,0.3)',
-                  backgroundColor: 'rgba(255,255,255,0.05)',
-                  marginBottom: 20,
-                  justifyContent: 'center',
-                  alignItems: 'center',
-                }}
+                activeOpacity={0.9}
+                style={{ height: 240, borderRadius: 36, backgroundColor: 'rgba(255,255,255,0.02)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.04)', overflow: 'hidden', justifyContent: 'center', alignItems: 'center', marginBottom: 40 }}
               >
                 {coverUrl ? (
                   <Image source={{ uri: coverUrl }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
                 ) : (
                   <View style={{ alignItems: 'center' }}>
-                    <Ionicons name="image-outline" size={34} color="rgba(255,255,255,0.35)" />
-                    <Text style={{ marginTop: 10, fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.55)' }}>
-                      Tap to select cover
-                    </Text>
-                    <Text style={{ marginTop: 4, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>
-                      4:5 works best (Instagram style)
-                    </Text>
+                    <Ionicons name="image-outline" size={48} color="rgba(255,255,255,0.3)" />
+                    <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 16 }}>Upload Cover Art</Text>
                   </View>
                 )}
               </TouchableOpacity>
 
-              {/* Title */}
-              <Text style={{ fontSize: 12, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.5)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 }}>
-                Title *
-              </Text>
-              <View style={{ backgroundColor: 'rgba(255,255,255,0.10)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 14, marginBottom: 16 }}>
-                <TextInput
-                  value={title}
-                  onChangeText={setTitle}
-                  placeholder="e.g. Summer T-Shirts Drop"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  style={{ paddingVertical: 14, fontFamily: 'HelveticaNeue', color: '#fff', fontSize: 16 }}
-                />
-              </View>
-
-              {/* Motive */}
-              <Text style={{ fontSize: 12, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.5)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 }}>
-                Motive
-              </Text>
-              <View style={{ backgroundColor: 'rgba(255,255,255,0.10)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 14, marginBottom: 16 }}>
-                <TextInput
-                  value={motive}
-                  onChangeText={setMotive}
-                  placeholder="Why this campaign?"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  style={{ paddingVertical: 14, fontFamily: 'HelveticaNeue', color: '#fff', fontSize: 16 }}
-                />
-              </View>
-
-              {/* Description */}
-              <Text style={{ fontSize: 12, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.5)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 }}>
-                Description
-              </Text>
-              <View style={{ backgroundColor: 'rgba(255,255,255,0.10)', borderRadius: 16, borderWidth: 1, borderColor: 'rgba(255,255,255,0.10)', paddingHorizontal: 14, marginBottom: 18 }}>
-                <TextInput
-                  value={description}
-                  onChangeText={setDescription}
-                  placeholder="What should users know?"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  multiline
-                  style={{ paddingVertical: 14, fontFamily: 'HelveticaNeue', color: '#fff', fontSize: 16, minHeight: 90, textAlignVertical: 'top' }}
-                />
-              </View>
-
-              {/* Status */}
-              <Text style={{ fontSize: 12, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.5)', letterSpacing: 1.5, textTransform: 'uppercase', marginBottom: 10 }}>
-                Status
-              </Text>
-              <View style={{ flexDirection: 'row', gap: 10, marginBottom: 22 }}>
-                {(['draft', 'active', 'paused'] as const).map((s) => {
-                  const active = status === s;
-                  return (
-                    <TouchableOpacity
-                      key={s}
-                      onPress={() => setStatus(s)}
-                      activeOpacity={0.8}
-                      style={{
-                        backgroundColor: active ? 'rgba(255,107,53,0.18)' : 'rgba(255,255,255,0.06)',
-                        borderWidth: 1,
-                        borderColor: active ? 'rgba(255,107,53,0.6)' : 'rgba(255,255,255,0.14)',
-                        borderRadius: 999,
-                        paddingHorizontal: 14,
-                        paddingVertical: 10,
-                      }}
-                    >
-                      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: active ? '#FF6B35' : 'rgba(255,255,255,0.6)', textTransform: 'uppercase', fontSize: 12, letterSpacing: 0.6 }}>
-                        {s}
-                      </Text>
-                    </TouchableOpacity>
-                  );
-                })}
-              </View>
-
-              {/* Products */}
-              <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 12 }}>
-                <Text style={{ fontSize: 12, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.5)', letterSpacing: 1.5, textTransform: 'uppercase' }}>
-                  Products ({selectedCount})
-                </Text>
-              </View>
-
-              {loadingProducts ? (
-                <View style={{ height: 120, justifyContent: 'center', alignItems: 'center' }}>
-                  <ActivityIndicator color="rgba(255,107,53,0.6)" />
+              {/* Title Input */}
+              <View className="mb-10">
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 12, marginBottom: 12, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Campaign Title</Text>
+                <View className="bg-white/8 rounded-2xl px-5 border border-white/15">
+                  <TextInput
+                    value={title}
+                    onChangeText={setTitle}
+                    placeholder="e.g. Summer Essentials 2024"
+                    placeholderTextColor="rgba(255,255,255,0.6)"
+                    style={{ paddingVertical: 20, fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 16 }}
+                  />
                 </View>
-              ) : products.length === 0 ? (
-                <View style={{ borderRadius: 18, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', padding: 18 }}>
-                  <Text style={{ fontSize: 14, fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.65)' }}>
-                    No products found.
-                  </Text>
-                  <Text style={{ fontSize: 12, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.45)', marginTop: 6 }}>
-                    Add products to your inventory first.
-                  </Text>
+              </View>
+
+              <View className="mb-10">
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 12, marginBottom: 12, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Campaign Motive</Text>
+                <View className="bg-white/8 rounded-2xl px-5 border border-white/15">
+                  <TextInput
+                    value={motive}
+                    onChangeText={setMotive}
+                    placeholder="Briefly describe the theme..."
+                    placeholderTextColor="rgba(255,255,255,0.6)"
+                    style={{ paddingVertical: 20, fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 16 }}
+                  />
                 </View>
-              ) : (
-                products
-                  .filter((p) => p.status !== 'archived')
-                  .map((p) => {
+              </View>
+
+              {/* Status Selector */}
+              <View className="mb-12">
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 12, marginBottom: 18, marginLeft: 4, textTransform: 'uppercase', letterSpacing: 1 }}>Campaign Status</Text>
+                <View style={{ flexDirection: 'row', gap: 10 }}>
+                  {(['draft', 'active', 'paused'] as const).map((s) => {
+                    const active = status === s;
+                    return (
+                      <TouchableOpacity
+                        key={s}
+                        onPress={() => setStatus(s)}
+                        activeOpacity={0.8}
+                        style={{
+                          flex: 1,
+                          height: 52,
+                          borderRadius: 18,
+                          backgroundColor: active ? 'rgba(255,107,53,0.1)' : 'rgba(255,255,255,0.03)',
+                          borderWidth: 1,
+                          borderColor: active ? '#FF6B35' : 'rgba(255,255,255,0.08)',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                          ...(active ? { shadowColor: '#FF6B35', shadowOffset: { width: 0, height: 4 }, shadowOpacity: 0.2, shadowRadius: 8, elevation: 4 } : {})
+                        }}
+                      >
+                        <Text style={{ fontFamily: 'HelveticaNeue-Light', color: active ? '#FF6B35' : 'rgba(255,255,255,0.65)', fontSize: 12, textTransform: 'uppercase', letterSpacing: 1 }}>{s}</Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
+              </View>
+
+              {/* Product Selection List */}
+              <View style={{ flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20, marginLeft: 4 }}>
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.8)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1.5 }}>Link Products</Text>
+                <View style={{ backgroundColor: 'rgba(255,107,53,0.1)', paddingHorizontal: 10, paddingVertical: 4, borderRadius: 8 }}>
+                  <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#FF6B35', fontSize: 10 }}>{selected.size} SELECTED</Text>
+                </View>
+              </View>
+
+              {loadingProducts ? <ActivityIndicator color="#FF6B35" /> : (
+                <View style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 16 }}>
+                  {products.map((p) => {
                     const isSelected = selected.has(p.id);
                     return (
                       <TouchableOpacity
                         key={p.id}
                         onPress={() => toggleSelect(p.id)}
-                        activeOpacity={0.75}
-                        style={{
-                          flexDirection: 'row',
-                          alignItems: 'center',
-                          backgroundColor: 'rgba(255,255,255,0.04)',
-                          borderRadius: 16,
-                          borderWidth: 1,
-                          borderColor: isSelected ? 'rgba(255,107,53,0.5)' : 'rgba(255,255,255,0.07)',
-                          padding: 12,
-                          marginBottom: 12,
+                        activeOpacity={0.9}
+                        style={{ 
+                          width: (width - 48 - 16) / 2, // 2 columns
+                          backgroundColor: 'rgba(255,255,255,0.03)', 
+                          borderRadius: 28, 
+                          overflow: 'hidden',
+                          borderWidth: 1, 
+                          borderColor: isSelected ? '#FF6B35' : 'rgba(255,255,255,0.05)',
+                          position: 'relative'
                         }}
                       >
-                        {p.primary_image_url ? (
-                          <Image
-                            source={{ uri: p.primary_image_url }}
-                            style={{ width: 54, height: 54, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.05)' }}
-                            resizeMode="cover"
-                          />
-                        ) : (
-                          <View style={{ width: 54, height: 54, borderRadius: 12, backgroundColor: 'rgba(255,255,255,0.07)', justifyContent: 'center', alignItems: 'center' }}>
-                            <Ionicons name="image-outline" size={24} color="rgba(255,255,255,0.3)" />
-                          </View>
-                        )}
-
-                        <View style={{ flex: 1, marginLeft: 12 }}>
-                          <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 14 }} numberOfLines={2}>
-                            {p.name}
-                          </Text>
-                          <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.45)', fontSize: 12, marginTop: 4 }}>
-                            PKR {Number(p.price || 0).toFixed(0)} · {(p.stock_quantity ?? 0)} in stock
-                          </Text>
+                        <Image 
+                          source={{ uri: p.primary_image_url || 'https://via.placeholder.com/150' }} 
+                          style={{ width: '100%', height: 160 }} 
+                          resizeMode="cover"
+                        />
+                        <View style={{ padding: 12 }}>
+                          <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 14 }} numberOfLines={1}>{p.name}</Text>
+                          <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 }}>${p.price}</Text>
                         </View>
 
-                        <View
-                          style={{
-                            width: 26,
-                            height: 26,
-                            borderRadius: 13,
-                            borderWidth: 1,
-                            borderColor: isSelected ? '#FF6B35' : 'rgba(255,255,255,0.25)',
-                            backgroundColor: isSelected ? 'rgba(255,107,53,0.18)' : 'transparent',
-                            justifyContent: 'center',
-                            alignItems: 'center',
-                          }}
-                        >
-                          {isSelected && <Ionicons name="checkmark" size={16} color="#FF6B35" />}
+                        {/* Selection Indicator */}
+                        <View style={{ 
+                          position: 'absolute', 
+                          top: 10, 
+                          right: 10, 
+                          width: 24, 
+                          height: 24, 
+                          borderRadius: 12, 
+                          backgroundColor: isSelected ? '#FF6B35' : 'rgba(0,0,0,0.3)',
+                          borderWidth: 1,
+                          borderColor: isSelected ? '#FF6B35' : 'rgba(255,255,255,0.2)',
+                          alignItems: 'center', 
+                          justifyContent: 'center',
+                          backdropFilter: 'blur(4px)' // Note: This doesn't work in standard RN but gives the idea
+                        }}>
+                          {isSelected && <Ionicons name="checkmark" size={16} color="white" />}
                         </View>
                       </TouchableOpacity>
                     );
-                  })
+                  })}
+                </View>
               )}
             </ScrollView>
           </KeyboardAvoidingView>
 
-          {/* Action Bar */}
-          <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, padding: 20, backgroundColor: 'rgba(0,0,0,0.80)', borderTopWidth: 0.5, borderTopColor: 'rgba(255,255,255,0.10)', flexDirection: 'row', gap: 12 }}>
-            <TouchableOpacity
-              onPress={() => {
-                if (isEdit && id) {
-                  Alert.alert('End campaign?', 'This will stop delivery and mark it ended.', [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'End',
-                      style: 'destructive',
-                      onPress: async () => {
-                        try {
-                          await apiClient.patch(`/campaigns/${id}/end`);
-                          qc.invalidateQueries({ queryKey: ['vendor-campaigns'] });
-                          Alert.alert('Ended', 'Campaign ended.');
-                          router.back();
-                        } catch (e: any) {
-                          Alert.alert('Error', e.response?.data?.error || 'Could not end campaign.');
-                        }
-                      },
-                    },
-                  ]);
-                  return;
-                }
-                router.back();
-              }}
-              disabled={isBusy}
-              style={{
-                flex: 1,
-                backgroundColor: 'rgba(255,255,255,0.06)',
-                borderWidth: 1,
-                borderColor: 'rgba(255,255,255,0.12)',
-                borderRadius: 999,
-                height: 54,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              activeOpacity={0.8}
-            >
-              <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: 'rgba(255,255,255,0.7)', textTransform: 'uppercase', letterSpacing: 1 }}>
-                {isEdit ? 'End' : 'Cancel'}
-              </Text>
-            </TouchableOpacity>
+          <View className="absolute bottom-0 left-0 right-0 p-8 bg-black/80 backdrop-blur-3xl border-t border-white/5">
             <TouchableOpacity
               onPress={() => createOrUpdateMutation.mutate()}
               disabled={isBusy}
-              style={{
-                flex: 1,
-                backgroundColor: '#FF6B35',
-                borderRadius: 999,
-                height: 54,
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-              activeOpacity={0.8}
+              style={{ height: 64, borderRadius: 24, backgroundColor: '#FF6B35', alignItems: 'center', justifyContent: 'center', shadowColor: '#FF6B35', shadowOpacity: 0.3, shadowRadius: 15, shadowOffset: { width: 0, height: 8 }, elevation: 6 }}
             >
-              {createOrUpdateMutation.isPending ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', textTransform: 'uppercase', letterSpacing: 1 }}>
-                  Save
-                </Text>
+              {createOrUpdateMutation.isPending ? <ActivityIndicator color="white" /> : (
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 16, letterSpacing: 1.5 }}>SAVE CAMPAIGN</Text>
               )}
             </TouchableOpacity>
           </View>
         </SafeAreaView>
-
       </LinearGradient>
+      )}
     </View>
   );
 }
-

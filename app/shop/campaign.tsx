@@ -6,6 +6,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { useQuery } from '@tanstack/react-query';
 import { apiClient } from '../../src/lib/apiClient';
+import { COLORS } from '../../src/constants/theme';
+import ModeSwitchOverlay from '../components/ModeSwitchOverlay';
 
 export default function CampaignScreen() {
   const router = useRouter();
@@ -22,11 +24,7 @@ export default function CampaignScreen() {
   const vendor = campaign?.vendor_profiles ?? null;
 
   if (isLoading) {
-    return (
-      <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' }}>
-        <ActivityIndicator color="#FF6B35" />
-      </View>
-    );
+    return <ModeSwitchOverlay />;
   }
 
   return (
@@ -34,86 +32,88 @@ export default function CampaignScreen() {
       <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
         <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           {/* Header */}
-          <View style={{ flexDirection: 'row', alignItems: 'center', paddingHorizontal: 20, paddingVertical: 14, borderBottomWidth: 0.5, borderBottomColor: 'rgba(255,255,255,0.1)' }}>
-            <TouchableOpacity onPress={() => router.back()} style={{ marginRight: 14 }}>
-              <Ionicons name="arrow-back" size={24} color="white" />
+          <View className="px-6 py-4 flex-row items-center">
+            <TouchableOpacity 
+              onPress={() => router.back()} 
+              activeOpacity={0.7}
+              style={{ width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}
+            >
+              <Ionicons name="chevron-back" size={22} color="white" />
             </TouchableOpacity>
-            <View style={{ flex: 1 }}>
-              <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 18 }} numberOfLines={1}>
-                {campaign?.title ?? 'Campaign'}
-              </Text>
-              <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.55)', fontSize: 12, marginTop: 2 }} numberOfLines={1}>
-                {vendor?.shop_name ?? 'Sponsored'}
-              </Text>
+            <View className="ml-5">
+              <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.4)', fontSize: 10, textTransform: 'uppercase', letterSpacing: 2 }}>Featured Collection</Text>
+              <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 22, marginTop: 1 }} numberOfLines={1}>{campaign?.title ?? 'Campaign'}</Text>
             </View>
           </View>
 
           <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ padding: 20, paddingBottom: 40 }}>
-            {/* Cover */}
-            <View style={{ borderRadius: 18, overflow: 'hidden', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
+            {/* Editorial Cover */}
+            <View style={{ borderRadius: 32, overflow: 'hidden', marginBottom: 24, backgroundColor: 'rgba(255,255,255,0.02)' }}>
               {campaign?.cover_image_url ? (
-                <Image source={{ uri: campaign.cover_image_url }} style={{ width: '100%', height: 260, backgroundColor: 'rgba(255,255,255,0.05)' }} resizeMode="cover" />
+                <Image source={{ uri: campaign.cover_image_url }} style={{ width: '100%', height: 400 }} resizeMode="cover" />
               ) : (
-                <View style={{ width: '100%', height: 200, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' }}>
-                  <Ionicons name="image-outline" size={40} color="rgba(255,255,255,0.2)" />
+                <View style={{ width: '100%', height: 300, alignItems: 'center', justifyContent: 'center' }}>
+                  <Ionicons name="image-outline" size={48} color="rgba(255,255,255,0.05)" />
                 </View>
               )}
-            </View>
-
-            {/* Title + description */}
-            <View style={{ marginTop: 14 }}>
-              <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 18 }}>
-                {campaign?.title ?? 'Campaign'}
-              </Text>
-              {campaign?.description ? (
-                <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.6)', fontSize: 13, marginTop: 8, lineHeight: 18 }}>
-                  {campaign.description}
-                </Text>
-              ) : null}
-            </View>
-
-            {/* Products */}
-            <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: 'rgba(255,255,255,0.6)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 1, marginTop: 18, marginBottom: 10 }}>
-              Products ({products.length})
-            </Text>
-
-            {products.map((p) => (
-              <TouchableOpacity
-                key={p.id}
-                activeOpacity={0.85}
-                onPress={() => router.push(`/shop/product-detail?id=${p.id}` as any)}
-                style={{
-                  backgroundColor: 'rgba(255,255,255,0.05)',
-                  borderRadius: 18,
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.1)',
-                  padding: 14,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  marginBottom: 12,
-                }}
+              
+              <LinearGradient 
+                colors={['transparent', 'rgba(0,0,0,0.8)']} 
+                className="absolute bottom-0 w-full p-8"
               >
-                {p.primary_image_url ? (
-                  <Image source={{ uri: p.primary_image_url }} style={{ width: 62, height: 62, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.05)' }} resizeMode="cover" />
-                ) : (
-                  <View style={{ width: 62, height: 62, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.07)', alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="shirt-outline" size={26} color="rgba(255,255,255,0.25)" />
+                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.6)', fontSize: 11, textTransform: 'uppercase', letterSpacing: 3, marginBottom: 8 }}>
+                  Curated by {vendor?.shop_name ?? 'Wearism'}
+                </Text>
+                <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 28 }}>
+                  {campaign?.title}
+                </Text>
+              </LinearGradient>
+            </View>
+
+            {/* Campaign Story */}
+            <View className="mb-12 px-2">
+              <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.6)', fontSize: 16, lineHeight: 28 }}>
+                {campaign?.description || 'Explore the latest trends and curated styles in this exclusive collection.'}
+              </Text>
+            </View>
+
+            {/* Curated Products */}
+            <View className="flex-row items-center justify-between mb-8 px-2">
+              <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: 'rgba(255,255,255,0.3)', fontSize: 12, textTransform: 'uppercase', letterSpacing: 2 }}>
+                The Collection
+              </Text>
+              <View className="h-[0.5px] bg-white/10 flex-1 ml-4" />
+            </View>
+
+            <View style={{ gap: 16 }}>
+              {products.map((p) => (
+                <TouchableOpacity
+                  key={p.id}
+                  onPress={() => router.push(`/shop/product-detail?id=${p.id}` as any)}
+                  activeOpacity={0.8}
+                  style={{ flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.02)', borderRadius: 24, padding: 12, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' }}
+                >
+                  <View style={{ width: 80, height: 80, borderRadius: 16, backgroundColor: 'rgba(255,255,255,0.05)', overflow: 'hidden', marginRight: 16 }}>
+                    {p.primary_image_url ? (
+                      <Image source={{ uri: p.primary_image_url }} style={{ width: 80, height: 80 }} />
+                    ) : (
+                      <Ionicons name="shirt-outline" size={24} color="rgba(255,255,255,0.1)" />
+                    )}
                   </View>
-                )}
-
-                <View style={{ flex: 1, marginLeft: 12 }}>
-                  <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 14 }} numberOfLines={2}>
-                    {p.name}
-                  </Text>
-                  <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.55)', fontSize: 12, marginTop: 6 }}>
-                    PKR {Number(p.price || 0).toFixed(0)}
-                    {p.stock_quantity != null ? ` · ${p.stock_quantity} in stock` : ''}
-                  </Text>
-                </View>
-
-                <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.35)" />
-              </TouchableOpacity>
-            ))}
+                  <View style={{ flex: 1 }}>
+                    <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.9)', fontSize: 15, marginBottom: 4 }} numberOfLines={1}>
+                      {p.name}
+                    </Text>
+                    <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 16 }}>
+                      ${Number(p.price || 0).toFixed(0)}
+                    </Text>
+                  </View>
+                  <View className="w-10 h-10 rounded-full bg-white/5 items-center justify-center">
+                    <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.2)" />
+                  </View>
+                </TouchableOpacity>
+              ))}
+            </View>
 
             {products.length === 0 && (
               <View style={{ paddingTop: 40, alignItems: 'center' }}>
@@ -124,30 +124,28 @@ export default function CampaignScreen() {
               </View>
             )}
 
-            {/* Vendor link */}
+            {/* Store Link */}
             {vendor?.id && (
               <TouchableOpacity
                 onPress={() => router.push(`/shop/vendor?vendorId=${encodeURIComponent(vendor.id)}` as any)}
                 activeOpacity={0.8}
-                style={{
-                  marginTop: 8,
-                  backgroundColor: 'rgba(255,107,53,0.12)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,107,53,0.35)',
-                  borderRadius: 16,
-                  padding: 14,
-                  flexDirection: 'row',
-                  alignItems: 'center',
-                  justifyContent: 'space-between',
-                }}
+                style={{ marginTop: 40, borderRadius: 24, overflow: 'hidden' }}
               >
-                <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                  <Ionicons name="storefront" size={18} color="#FF6B35" />
-                  <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#FF6B35', marginLeft: 8 }}>
-                    View {vendor.shop_name ?? 'Store'}
-                  </Text>
-                </View>
-                <Ionicons name="chevron-forward" size={18} color="#FF6B35" />
+                <LinearGradient
+                  colors={['rgba(255,255,255,0.05)', 'rgba(255,255,255,0.02)']}
+                  style={{ padding: 24, flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between' }}
+                >
+                  <View className="flex-row items-center">
+                    <View className="w-12 h-12 rounded-full bg-white/5 items-center justify-center mr-4 border border-white/5">
+                      <Ionicons name="storefront" size={20} color={COLORS.primary} />
+                    </View>
+                    <View>
+                      <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 16 }}>{vendor.shop_name}</Text>
+                      <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.4)', fontSize: 12 }}>View Storefront</Text>
+                    </View>
+                  </View>
+                  <Ionicons name="chevron-forward" size={20} color="rgba(255,255,255,0.2)" />
+                </LinearGradient>
               </TouchableOpacity>
             )}
           </ScrollView>
