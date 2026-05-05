@@ -68,7 +68,7 @@ const VendorAnalytics = () => {
       {
         label: 'Total revenue',
         value: formatPkr(Number(overview.revenue_pkr ?? 0)),
-        sub: `${Number(overview.orders_count ?? 0)} completed orders`,
+        sub: `${Number(overview.orders_count ?? 0)} orders (excl. cancelled & refunded)`,
         icon: 'cash-outline' as const,
         accent: '#10B981', // Emerald for money
       },

@@ -43,7 +43,7 @@ export default function ProductDetailScreen() {
       : (product?.primary_image_url ? [product.primary_image_url] : [])) || [];
 
   const safeImages = images.length > 0 ? images : ['https://via.placeholder.com/600'];
-  const isOutOfStock = product.stock_quantity === 0;
+  const isOutOfStock = product != null && Number(product.stock_quantity) === 0;
 
   const addToCartMutation = useMutation({
     mutationFn: () => apiClient.post('/cart/items', {

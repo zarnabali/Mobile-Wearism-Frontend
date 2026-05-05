@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useMemo } from 'react';
 import { View, Text, ScrollView, TouchableOpacity, ActivityIndicator, Image, RefreshControl, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -125,10 +125,29 @@ const VendorInventory = () => {
         queryFn: () => apiClient.get('/vendors/me/products').then((r) => r.data),
     });
 
+    const { data: analyticsPayload } = useQuery({
+        queryKey: ['vendor-analytics'],
+        queryFn: () => apiClient.get('/vendors/me/analytics').then((r) => r.data),
+    });
+
     const products: VendorProduct[] = data?.products ?? [];
+    const orderUnitsByProductId = useMemo(() => {
+        const m = new Map<string, number>();
+        const rows: { id: string; orders?: number }[] = analyticsPayload?.analytics?.products ?? [];
+        for (const row of rows) {
+            if (row?.id) m.set(row.id, Number(row.orders ?? 0));
+        }
+        return m;
+    }, [analyticsPayload]);
+
     const activeCount = products.filter((p) => p.status === 'active' || p.is_active === true).length;
     const totalStock = products.reduce((sum, p) => sum + (p.stock_quantity ?? 0), 0);
-    const estimatedRevenue = products.reduce((sum, p) => sum + (p.price * (p.sales_count ?? 0)), 0);
+    const estimatedFromListPrices = products.reduce((sum, p) => {
+        const units = orderUnitsByProductId.get(p.id) ?? p.sales_count ?? 0;
+        return sum + p.price * units;
+    }, 0);
+    const overviewRevenue = Number(analyticsPayload?.analytics?.overview?.revenue_pkr);
+    const displayRevenue = Number.isFinite(overviewRevenue) ? overviewRevenue : estimatedFromListPrices;
 
     return (
     <View style={{ flex: 1, backgroundColor: '#000' }}>
@@ -193,14 +212,14 @@ const VendorInventory = () => {
                             </View>
                             
                             <Text style={{ fontSize: 12, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.5)', letterSpacing: 1.5, textTransform: 'uppercase' }}>
-                                Total Estimated Revenue
+                                Total revenue (orders)
                             </Text>
                             <View style={{ flexDirection: 'row', alignItems: 'baseline', marginTop: 8 }}>
                                 <Text style={{ fontSize: 42, fontFamily: 'HelveticaNeue-Light', color: '#fff' }}>
-                                    ${estimatedRevenue.toFixed(0)}
+                                    PKR {Math.round(displayRevenue).toLocaleString('en-PK')}
                                 </Text>
-                                <Text style={{ fontSize: 18, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.4)', marginLeft: 8 }}>
-                                    USD
+                                <Text style={{ fontSize: 13, fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.35)', marginLeft: 8 }}>
+                                    {Number.isFinite(overviewRevenue) ? 'from orders' : 'estimate'}
                                 </Text>
                             </View>
                             

@@ -53,7 +53,7 @@ const BASE_URL = resolveBaseUrl();
 
 export const apiClient = axios.create({
   baseURL: BASE_URL,
-  timeout: 15000,
+  timeout: 30000,
   // IMPORTANT: Do not force Content-Type globally.
   // Axios needs to manage multipart boundaries for FormData requests.
   // For JSON requests, we'll set Content-Type per-request in the interceptor.

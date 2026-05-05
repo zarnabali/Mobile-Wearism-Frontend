@@ -30,9 +30,11 @@ const STATUS_COLORS: Record<string, string> = {
   cancelled:  '#F44336',
 };
 
-function formatCurrency(val: number) {
-  if (val >= 1000) return `$${(val / 1000).toFixed(1)}K`;
-  return `$${val.toFixed(0)}`;
+function formatPkr(val: number) {
+  if (!Number.isFinite(val)) return 'PKR 0';
+  if (val >= 1_000_000) return `PKR ${(val / 1_000_000).toFixed(1)}M`;
+  if (val >= 1000) return `PKR ${(val / 1000).toFixed(1)}K`;
+  return `PKR ${Math.round(val).toLocaleString('en-PK')}`;
 }
 
 export default function VendorDashboard() {
@@ -48,13 +50,13 @@ export default function VendorDashboard() {
   const metricCards = [
     {
       label: 'Revenue',
-      value: formatCurrency(summary.total_revenue ?? 0),
+      value: formatPkr(Number(summary.total_revenue ?? 0)),
       icon: 'trending-up',
       color: '#FF6B35',
       bg: CARD_BG[0],
     },
     {
-      label: 'Sales',
+      label: 'Orders',
       value: String(summary.total_sales ?? 0),
       icon: 'bag-handle',
       color: '#4CAF50',
@@ -194,7 +196,7 @@ export default function VendorDashboard() {
                         </View>
                         <View style={{ alignItems: 'flex-end', gap: 6 }}>
                           <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#FF6B35', fontSize: 15 }}>
-                            ${(order.total ?? 0).toFixed(2)}
+                            PKR {Number(order.total_amount ?? order.total ?? 0).toLocaleString('en-PK', { minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                           </Text>
                           <View style={{
                             backgroundColor: `${STATUS_COLORS[order.status] ?? '#aaa'}22`,
