@@ -16,12 +16,12 @@ import ModeSwitchOverlay from './components/ModeSwitchOverlay';
 
 // Slot display config
 const SLOT_CONFIG: Record<string, { label: string; icon: string }> = {
-  upperwear:   { label: 'Tops',       icon: 'shirt-outline' },
-  lowerwear:   { label: 'Bottoms',    icon: 'body-outline' },
-  outerwear:   { label: 'Outerwear',  icon: 'cloud-outline' },
+  upperwear: { label: 'Tops', icon: 'shirt-outline' },
+  lowerwear: { label: 'Bottoms', icon: 'body-outline' },
+  outerwear: { label: 'Outerwear', icon: 'cloud-outline' },
   // Frontend-only pseudo-slot: footwear is physically stored as accessories in DB,
   // but rendered separately for better UX using fashionclip_main_category.
-  footwear:    { label: 'Footwear',   icon: 'footsteps-outline' },
+  footwear: { label: 'Footwear', icon: 'footsteps-outline' },
   accessories: { label: 'Accessories', icon: 'glasses-outline' },
 };
 
@@ -385,145 +385,41 @@ const WardrobeScreen = () => {
                   </View>
                 )}
 
-                {/* ── AI Recommendations ── */}
+                {/* ── AI Fits Section ── */}
                 <View style={{ marginTop: 8, marginBottom: 16 }}>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 16 }}>
+                  <View style={{ 
+                    flexDirection: 'row', 
+                    alignItems: 'center', 
+                    justifyContent: 'space-between', 
+                    backgroundColor: 'rgba(255,255,255,0.05)',
+                    padding: 18,
+                    borderRadius: 24,
+                    borderWidth: 1,
+                    borderColor: 'rgba(255,255,255,0.1)'
+                  }}>
                     <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Ionicons name="sparkles" size={18} color="#FF6B35" style={{ marginRight: 8 }} />
+                      <Ionicons name="sparkles" size={22} color="#FF6B35" style={{ marginRight: 10 }} />
                       <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 20 }}>
                         AI Fits
                       </Text>
                     </View>
+                    
                     <TouchableOpacity
-                      onPress={() => generateMutation.mutate(undefined)}
-                      disabled={generateMutation.isPending}
-                      style={{
-                        flexDirection: 'row', alignItems: 'center',
-                        backgroundColor: generateMutation.isPending ? 'rgba(255,107,53,0.3)' : 'rgba(255,107,53,0.15)',
-                        borderWidth: 1, borderColor: 'rgba(255,107,53,0.4)',
-                        paddingHorizontal: 14, paddingVertical: 7, borderRadius: 999,
-                      }}
-                    >
-                      {generateMutation.isPending ? (
-                        <ActivityIndicator size="small" color="#FF6B35" />
-                      ) : (
-                        <>
-                          <Ionicons name="refresh-outline" size={14} color="#FF6B35" style={{ marginRight: 5 }} />
-                          <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#FF6B35', fontSize: 13 }}>
-                            Generate
-                          </Text>
-                        </>
-                      )}
-                    </TouchableOpacity>
-                  </View>
-
-                  {recsLoading ? (
-                    <ActivityIndicator color="#FF6B35" style={{ alignSelf: 'flex-start' }} />
-                  ) : recs.length === 0 ? (
-                    <TouchableOpacity
-                      onPress={() => generateMutation.mutate(undefined)}
-                      disabled={generateMutation.isPending}
+                      onPress={() => router.push('/weekly-plan' as any)}
                       activeOpacity={0.8}
                       style={{
-                        backgroundColor: 'rgba(255,255,255,0.04)',
-                        borderWidth: 1, borderColor: 'rgba(255,107,53,0.2)',
-                        borderRadius: 24, padding: 24, alignItems: 'center',
+                        flexDirection: 'row', alignItems: 'center',
+                        backgroundColor: 'rgba(255,255,255,0.07)',
+                        borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
+                        paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
                       }}
                     >
-                      <Ionicons name="sparkles-outline" size={32} color="rgba(255,107,53,0.45)" />
-                      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.55)', fontSize: 14, marginTop: 10 }}>
-                        No recommendations yet
+                      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.85)', fontSize: 13 }}>
+                        Plan Weekly
                       </Text>
-                      <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,107,53,0.65)', fontSize: 13, marginTop: 4 }}>
-                        Tap Generate to get AI outfit ideas →
-                      </Text>
+                      <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.6)" style={{ marginLeft: 5 }} />
                     </TouchableOpacity>
-                  ) : (
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, paddingHorizontal: 20 }}>
-                      {recs.map((rec: any) => (
-                        <View
-                          key={rec.id}
-                          style={{
-                            width: 200, marginRight: 16,
-                            backgroundColor: 'rgba(255,255,255,0.05)',
-                            borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)',
-                            borderRadius: 24, overflow: 'hidden',
-                          }}
-                        >
-                          {/* Item thumbnails */}
-                          <View style={{ flexDirection: 'row', flexWrap: 'wrap', padding: 12, gap: 6 }}>
-                            {(rec.items ?? []).slice(0, 4).map((item: any, idx: number) => (
-                              <View
-                                key={idx}
-                                style={{ width: 76, height: 76, borderRadius: 12, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.05)' }}
-                              >
-                                <Image source={{ uri: item.image_url }} style={{ width: '100%', height: '100%' }} resizeMode="cover" />
-                              </View>
-                            ))}
-                          </View>
-
-                          <View style={{ paddingHorizontal: 14, paddingBottom: 14 }}>
-                            {(rec.ai_status === 'pending' || rec.ai_status === 'processing') && (
-                              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 8 }}>
-                                <ActivityIndicator size="small" color="#FF6B35" style={{ marginRight: 8 }} />
-                                <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>
-                                  AI is scoring this outfit…
-                                </Text>
-                              </View>
-                            )}
-                            {rec.ai_status === 'failed' && (
-                              <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,150,120,0.9)', fontSize: 12, marginBottom: 8 }}>
-                                Couldn&apos;t score this combo. Dismiss and try Generate again.
-                              </Text>
-                            )}
-                            {rec.ai_rating != null && rec.ai_status === 'completed' && (
-                              <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 6 }}>
-                                <Ionicons name="star" size={12} color="#FF6B35" style={{ marginRight: 4 }} />
-                                <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#FF6B35', fontSize: 13 }}>
-                                  {rec.ai_rating.toFixed(1)}
-                                </Text>
-                              </View>
-                            )}
-                            {rec.occasion && (
-                              <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.5)', fontSize: 12, marginBottom: 12, textTransform: 'capitalize' }}>
-                                {rec.occasion.replace(/_/g, ' ')}
-                              </Text>
-                            )}
-                            <View style={{ flexDirection: 'row', gap: 8 }}>
-                              <TouchableOpacity
-                                onPress={() => saveMutation.mutate(rec.id)}
-                                disabled={saveMutation.isPending}
-                                style={{
-                                  flex: 1, flexDirection: 'row', alignItems: 'center', justifyContent: 'center',
-                                  backgroundColor: '#FF6B35', borderRadius: 12, paddingVertical: 9,
-                                }}
-                              >
-                                {saveMutation.isPending ? (
-                                  <ActivityIndicator size="small" color="#fff" />
-                                ) : (
-                                  <>
-                                    <Ionicons name="bookmark-outline" size={14} color="#fff" style={{ marginRight: 5 }} />
-                                    <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 12 }}>Save</Text>
-                                  </>
-                                )}
-                              </TouchableOpacity>
-                              <TouchableOpacity
-                                onPress={() => dismissMutation.mutate(rec.id)}
-                                disabled={dismissMutation.isPending}
-                                style={{
-                                  width: 38, height: 38, alignItems: 'center', justifyContent: 'center',
-                                  backgroundColor: 'rgba(255,255,255,0.08)',
-                                  borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', borderRadius: 12,
-                                }}
-                              >
-                                <Ionicons name="close" size={16} color="rgba(255,255,255,0.6)" />
-                              </TouchableOpacity>
-                            </View>
-                          </View>
-                        </View>
-                      ))}
-                    </ScrollView>
-                  )}
+                  </View>
                 </View>
 
               </View>

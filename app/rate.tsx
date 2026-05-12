@@ -110,7 +110,7 @@ const RateScreen = () => {
       form.append('weather', weather);
       form.append('season', season);
       form.append('style_preference', stylePreference);
-      form.append('mode', 'heavyweight');
+      form.append('mode', 'direct_vision');
       form.append('file', {
         uri: selectedImage.uri,
         name: 'outfit-rating.jpg',
@@ -150,17 +150,17 @@ const RateScreen = () => {
 
     const result = useCamera
       ? await ImagePicker.launchCameraAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          // Do NOT force an editor crop; users should be able to upload any aspect ratio.
-          allowsEditing: false,
-          quality: 0.85,
-        })
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        // Do NOT force an editor crop; users should be able to upload any aspect ratio.
+        allowsEditing: false,
+        quality: 0.85,
+      })
       : await ImagePicker.launchImageLibraryAsync({
-          mediaTypes: ImagePicker.MediaTypeOptions.Images,
-          // Do NOT force an editor crop; users should be able to upload any aspect ratio.
-          allowsEditing: false,
-          quality: 0.85,
-        });
+        mediaTypes: ImagePicker.MediaTypeOptions.Images,
+        // Do NOT force an editor crop; users should be able to upload any aspect ratio.
+        allowsEditing: false,
+        quality: 0.85,
+      });
 
     if (!result.canceled && result.assets.length > 0) {
       setSelectedImage(result.assets[0]);

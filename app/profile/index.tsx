@@ -108,8 +108,12 @@ const ProfileScreen = () => {
 
               <SafeAreaView edges={['top']} style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
                 <View className="flex-row justify-between items-center px-5 py-2">
-                  <TouchableOpacity className="bg-black/20 p-2 rounded-full backdrop-blur-md">
-                    <Ionicons name="arrow-back" size={24} color="white" />
+                  <TouchableOpacity 
+                    onPress={() => router.push('/social/requests' as any)}
+                    className="bg-black/20 p-2 rounded-full backdrop-blur-md relative"
+                  >
+                    <Ionicons name="swap-horizontal" size={24} color="white" />
+                    {/* Potential badge here */}
                   </TouchableOpacity>
                   <TouchableOpacity onPress={handleSettingsPress} className="bg-black/20 p-2 rounded-full backdrop-blur-md">
                     <Ionicons name="settings-outline" size={24} color="white" />
