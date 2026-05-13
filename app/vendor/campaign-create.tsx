@@ -299,8 +299,7 @@ export default function CampaignCreateScreen() {
                           borderWidth: 1,
                           borderColor: isSelected ? '#FF6B35' : 'rgba(255,255,255,0.2)',
                           alignItems: 'center', 
-                          justifyContent: 'center',
-                          backdropFilter: 'blur(4px)' // Note: This doesn't work in standard RN but gives the idea
+                          justifyContent: 'center'
                         }}>
                           {isSelected && <Ionicons name="checkmark" size={16} color="white" />}
                         </View>

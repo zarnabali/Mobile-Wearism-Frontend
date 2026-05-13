@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity,
   ActivityIndicator, Alert, TextInput, Image,
+  StyleSheet, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +10,9 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { apiClient } from '../../src/lib/apiClient';
+import { COLORS, FONTS } from '../../src/constants/theme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 const OCCASIONS = ['casual', 'formal', 'business', 'party', 'athleisure', 'streetwear', 'smart_casual'];
 const SEASONS = ['spring', 'summer', 'autumn', 'winter', 'all_season'];
@@ -72,149 +76,109 @@ export default function OutfitCreateScreen() {
 
   if (isLoading) {
     return (
-      <View className="flex-1 bg-black justify-center items-center">
-        <ActivityIndicator color="#FF6B35" size="large" />
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator color={COLORS.primary} size="large" />
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-black">
-      <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
-        <SafeAreaView className="flex-1">
+    <View style={styles.container}>
+      <LinearGradient colors={['#000', '#0a0a0a', '#121212']} style={{ flex: 1 }}>
+        <SafeAreaView style={{ flex: 1 }}>
           {/* Header */}
-          <View className="flex-row items-center justify-between px-5 h-14 border-b border-white/10">
-            <TouchableOpacity onPress={() => router.back()} className="p-1">
-              <Ionicons name="arrow-back" size={24} color="white" />
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <Ionicons name="chevron-back" size={24} color="white" />
             </TouchableOpacity>
-            <Text className="text-white text-lg font-bold" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
-              Create Outfit
-            </Text>
-            <TouchableOpacity onPress={handleCreate} disabled={createMutation.isPending}>
+            <Text style={styles.headerTitle}>CREATE OUTFIT</Text>
+            <TouchableOpacity onPress={handleCreate} disabled={createMutation.isPending} style={styles.saveBtn}>
               {createMutation.isPending ? (
-                <ActivityIndicator color="#FF6B35" size="small" />
+                <ActivityIndicator color={COLORS.primary} size="small" />
               ) : (
-                <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold', color: '#FF6B35', fontSize: 16 }}>
-                  Save
-                </Text>
+                <Text style={styles.saveBtnText}>CREATE</Text>
               )}
             </TouchableOpacity>
           </View>
 
-          <ScrollView className="flex-1" contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false}>
-            {/* Form */}
-            <View className="px-5 mt-6 mb-6">
-              <Text className="text-white/60 text-xs uppercase tracking-widest mb-2" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }}>
-                Outfit Name (Optional)
-              </Text>
-              <TextInput
-                value={name}
-                onChangeText={setName}
-                placeholder="e.g. Summer Date Night"
-                placeholderTextColor="rgba(255,255,255,0.3)"
-                className="bg-white/10 border border-white/20 rounded-xl px-4 h-14 text-white text-[16px]"
-                style={{ paddingVertical: 0, paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}
-              />
-
-              {/* Occasion */}
-              <View className="mt-4">
-                <Text className="text-white/60 text-xs uppercase tracking-widest mb-2" style={{ fontFamily: 'HelveticaNeue-Medium' }}>
-                  Occasion
-                </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false} className="mb-1">
-                  {OCCASIONS.map(occ => (
-                    <TouchableOpacity
-                      key={occ}
-                      onPress={() => setOccasion(occ)}
-                      className="mr-2 px-4 h-11 rounded-full border"
-                      style={{
-                        backgroundColor: occasion === occ ? '#FF6B35' : 'rgba(255,255,255,0.05)',
-                        borderColor: occasion === occ ? '#FF6B35' : 'rgba(255,255,255,0.15)',
-                        alignItems: 'center', justifyContent: 'center',
-                      }}
-                    >
-                      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: occasion === occ ? '#fff' : 'rgba(255,255,255,0.7)', fontSize: 13 }}>
-                        {occ.replace(/_/g, ' ')}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
-              </View>
-
-              {/* Season */}
-              <View className="mt-4">
-                <Text className="text-white/60 text-xs uppercase tracking-widest mb-2" style={{ fontFamily: 'HelveticaNeue-Medium' }}>
-                  Season
-                </Text>
-                <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-                  {SEASONS.map(s => (
-                    <TouchableOpacity
-                      key={s}
-                      onPress={() => setSeason(s)}
-                      className="mr-2 px-4 h-11 rounded-full border"
-                      style={{
-                        backgroundColor: season === s ? 'rgba(255,107,53,0.15)' : 'rgba(255,255,255,0.05)',
-                        borderColor: season === s ? '#FF6B35' : 'rgba(255,255,255,0.15)',
-                        alignItems: 'center', justifyContent: 'center',
-                      }}
-                    >
-                      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: season === s ? '#FF6B35' : 'rgba(255,255,255,0.7)', fontSize: 13 }}>
-                        {s.replace(/_/g, ' ')}
-                      </Text>
-                    </TouchableOpacity>
-                  ))}
-                </ScrollView>
+          <ScrollView style={styles.scroll} showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+            {/* Name Input */}
+            <View style={styles.inputGroup}>
+              <Text style={styles.inputLabel}>OUTFIT NAME</Text>
+              <View style={styles.inputWrapper}>
+                <TextInput
+                  value={name}
+                  onChangeText={setName}
+                  placeholder="e.g. Minimalist Summer Look"
+                  placeholderTextColor="rgba(255,255,255,0.2)"
+                  style={styles.input}
+                  selectionColor={COLORS.primary}
+                />
               </View>
             </View>
 
-            {/* Item Grid grouped by Slot */}
-            <View className="px-5">
-              <Text className="text-white text-xl font-light mb-4" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Light' }}>
-                Select Items ({selectedIds.size})
-              </Text>
+            {/* Occasion */}
+            <View style={styles.selectorGroup}>
+              <Text style={styles.inputLabel}>OCCASION</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.chipsScroll}>
+                {OCCASIONS.map(occ => {
+                  const active = occasion === occ;
+                  return (
+                    <TouchableOpacity
+                      key={occ}
+                      onPress={() => setOccasion(occ)}
+                      activeOpacity={0.8}
+                      style={[styles.chip, active && styles.chipActive]}
+                    >
+                      <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                        {occ.replace(/_/g, ' ').toUpperCase()}
+                      </Text>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
+            </View>
+
+            {/* Selection Section */}
+            <View style={styles.selectionSection}>
+              <View style={styles.selectionHeader}>
+                <Text style={styles.inputLabel}>CHOOSE PIECES</Text>
+                <View style={styles.countBadge}>
+                  <Text style={styles.countText}>{selectedIds.size} SELECTED</Text>
+                </View>
+              </View>
 
               {slots.map(slot => {
                 const slotItems = items.filter(i => i.wardrobe_slot === slot);
                 if (slotItems.length === 0) return null;
 
                 return (
-                  <View key={slot} className="mb-6">
-                    <Text className="text-white/60 text-xs uppercase tracking-widest mb-3" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }}>
-                      {slot}
-                    </Text>
-                    <View className="flex-row flex-wrap -mx-1">
+                  <View key={slot} style={styles.slotGroup}>
+                    <Text style={styles.slotTitle}>{slot.toUpperCase()}</Text>
+                    <View style={styles.itemsGrid}>
                       {slotItems.map((item) => {
                         const isSelected = selectedIds.has(item.id);
                         return (
                           <TouchableOpacity
                             key={item.id}
                             onPress={() => toggleSelection(item.id)}
-                            activeOpacity={0.8}
-                            className="w-1/2 px-1 mb-2"
+                            activeOpacity={0.9}
+                            style={styles.itemCard}
                           >
-                            <View
-                              style={{
-                                borderRadius: 16, overflow: 'hidden', aspectRatio: 3 / 4,
-                                borderWidth: 2,
-                                borderColor: isSelected ? '#FF6B35' : 'transparent',
-                              }}
-                            >
+                            <View style={[styles.imageWrapper, isSelected && styles.imageWrapperSelected]}>
                               <Image
                                 source={{ uri: item.image_url }}
-                                style={{ width: '100%', height: '100%', backgroundColor: 'rgba(255,255,255,0.08)' }}
+                                style={styles.itemImage}
                                 resizeMode="cover"
                               />
-                              {/* Item name overlay */}
-                              <View style={{ position: 'absolute', bottom: 0, left: 0, right: 0, backgroundColor: 'rgba(0,0,0,0.55)', padding: 8 }}>
-                                <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff', fontSize: 11 }} numberOfLines={1}>
-                                  {item.name || item.fashionclip_main_category || 'Item'}
+                              <View style={styles.itemOverlay}>
+                                <Text style={styles.itemName} numberOfLines={1}>
+                                  {item.name || item.fashionclip_main_category || 'ITEM'}
                                 </Text>
                               </View>
                               {isSelected && (
-                                <View style={{ position: 'absolute', inset: 0, backgroundColor: 'rgba(255,107,53,0.18)', alignItems: 'center', justifyContent: 'center' }}>
-                                  <View style={{ backgroundColor: '#FF6B35', borderRadius: 999, padding: 6, shadowColor: '#FF6B35', shadowOpacity: 0.5, shadowRadius: 8 }}>
-                                    <Ionicons name="checkmark" size={18} color="white" />
-                                  </View>
+                                <View style={styles.checkOverlay}>
+                                  <Ionicons name="checkmark" size={16} color="#fff" />
                                 </View>
                               )}
                             </View>
@@ -232,3 +196,44 @@ export default function OutfitCreateScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000' },
+  loaderContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, height: 70, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
+  headerTitle: { fontFamily: FONTS.light, color: '#fff', fontSize: 18, letterSpacing: 3 },
+  saveBtn: { paddingHorizontal: 15, height: 40, alignItems: 'center', justifyContent: 'center' },
+  saveBtnText: { fontFamily: FONTS.bold, color: COLORS.primary, fontSize: 14, letterSpacing: 2 },
+  
+  scroll: { flex: 1 },
+  scrollContent: { paddingBottom: 100 },
+  
+  inputGroup: { paddingHorizontal: 25, paddingTop: 30, marginBottom: 35 },
+  inputLabel: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.3)', fontSize: 10, letterSpacing: 3, marginBottom: 15 },
+  inputWrapper: { height: 60, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', paddingHorizontal: 20 },
+  input: { fontFamily: FONTS.medium, color: '#fff', fontSize: 16 },
+  
+  selectorGroup: { marginBottom: 35 },
+  chipsScroll: { paddingHorizontal: 25, gap: 10 },
+  chip: { paddingHorizontal: 18, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
+  chipActive: { backgroundColor: 'rgba(255,107,53,0.15)', borderColor: COLORS.primary },
+  chipText: { fontFamily: FONTS.medium, color: 'rgba(255,255,255,0.4)', fontSize: 12, letterSpacing: 1 },
+  chipTextActive: { color: COLORS.primary },
+  
+  selectionSection: { paddingHorizontal: 25 },
+  selectionHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 25 },
+  countBadge: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: 'rgba(255,107,53,0.1)' },
+  countText: { fontFamily: FONTS.bold, color: COLORS.primary, fontSize: 10, letterSpacing: 1 },
+  
+  slotGroup: { marginBottom: 35 },
+  slotTitle: { fontFamily: FONTS.bold, color: 'rgba(255,255,255,0.2)', fontSize: 9, letterSpacing: 4, marginBottom: 15 },
+  itemsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
+  itemCard: { width: '50%', padding: 6, aspectRatio: 0.75 },
+  imageWrapper: { flex: 1, borderRadius: 24, overflow: 'hidden', backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  imageWrapperSelected: { borderColor: COLORS.primary, borderWidth: 2 },
+  itemImage: { width: '100%', height: '100%' },
+  itemOverlay: { position: 'absolute', bottom: 0, left: 0, right: 0, padding: 12, backgroundColor: 'rgba(0,0,0,0.4)' },
+  itemName: { fontFamily: FONTS.medium, color: '#fff', fontSize: 10 },
+  checkOverlay: { position: 'absolute', top: 10, right: 10, width: 26, height: 26, borderRadius: 13, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center', shadowColor: COLORS.primary, shadowRadius: 5, shadowOpacity: 0.5 },
+});

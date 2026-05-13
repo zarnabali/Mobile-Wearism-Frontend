@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, Image, TouchableOpacity,
-  ActivityIndicator, Alert, StyleSheet,
+  ActivityIndicator, Alert, StyleSheet, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,6 +10,9 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { apiClient } from '../../src/lib/apiClient';
 import ModeSwitchOverlay from '../components/ModeSwitchOverlay';
+import { COLORS, FONTS } from '../../src/constants/theme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 function OutfitItemThumbnail({ uri }: { uri?: string | null }) {
   const [loaded, setLoaded] = useState(false);
@@ -17,23 +20,22 @@ function OutfitItemThumbnail({ uri }: { uri?: string | null }) {
 
   if (!uri) {
     return (
-      <View className="w-full h-full items-center justify-center bg-white/5">
-        <Ionicons name="image-outline" size={28} color="rgba(255,255,255,0.25)" />
+      <View style={styles.thumbPlaceholder}>
+        <Ionicons name="image-outline" size={24} color="rgba(255,255,255,0.1)" />
       </View>
     );
   }
 
   return (
-    <View className="w-full h-full">
+    <View style={styles.thumbContainer}>
       {!loaded && !failed && (
-        <View style={[StyleSheet.absoluteFillObject]} className="items-center justify-center bg-white/5">
-          <ActivityIndicator size="small" color="#FF6B35" />
+        <View style={[StyleSheet.absoluteFillObject, styles.thumbLoader]}>
+          <ActivityIndicator size="small" color={COLORS.primary} />
         </View>
       )}
       <Image
         source={{ uri }}
-        className="w-full h-full"
-        style={{ backgroundColor: '#111', opacity: loaded && !failed ? 1 : 0 }}
+        style={[styles.thumbImage, { opacity: loaded && !failed ? 1 : 0 }]}
         resizeMode="cover"
         onLoad={() => setLoaded(true)}
         onError={() => {
@@ -42,8 +44,8 @@ function OutfitItemThumbnail({ uri }: { uri?: string | null }) {
         }}
       />
       {failed && (
-        <View style={[StyleSheet.absoluteFillObject]} className="items-center justify-center bg-white/5">
-          <Ionicons name="image-outline" size={28} color="rgba(255,255,255,0.25)" />
+        <View style={[StyleSheet.absoluteFillObject, styles.thumbPlaceholder]}>
+          <Ionicons name="alert-circle-outline" size={24} color="rgba(255,255,255,0.2)" />
         </View>
       )}
     </View>
@@ -99,118 +101,139 @@ export default function OutfitDetailScreen() {
   };
 
   return (
-    <View className="flex-1 bg-black">
+    <View style={styles.container}>
       {isLoading ? (
         <ModeSwitchOverlay />
       ) : !outfit ? (
-        <View className="flex-1 bg-black justify-center items-center">
-          <Text className="text-white">Outfit not found.</Text>
-          <TouchableOpacity onPress={() => router.back()} style={{ marginTop: 16, paddingHorizontal: 24, paddingVertical: 12, backgroundColor: 'rgba(255,255,255,0.1)', borderRadius: 999 }}>
-            <Text className="text-white">Back</Text>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>Outfit not found.</Text>
+          <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+            <Text style={styles.backBtnText}>GO BACK</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
-        <SafeAreaView className="flex-1" edges={['top']}>
-          {/* Header */}
-          <View className="flex-row items-center justify-between px-5 border-b border-white/10" style={{ paddingVertical: 14 }}>
-            <TouchableOpacity onPress={() => router.back()} className="p-1">
-              <Ionicons name="arrow-back" size={24} color="white" />
-            </TouchableOpacity>
-            <View className="flex-row items-center space-x-4">
-              <TouchableOpacity
-                onPress={() => router.push(`/wardrobe/outfit-edit?id=${id}` as any)}
-                activeOpacity={0.7}
-              >
-                <Ionicons name="pencil-outline" size={22} color="rgba(255,255,255,0.6)" />
+        <LinearGradient colors={['#000', '#0a0a0a', '#121212']} style={{ flex: 1 }}>
+          <SafeAreaView style={{ flex: 1 }} edges={['top']}>
+            {/* Header */}
+            <View style={styles.header}>
+              <TouchableOpacity onPress={() => router.back()} style={styles.headerIconBtn}>
+                <Ionicons name="chevron-back" size={24} color="#fff" />
               </TouchableOpacity>
-              <TouchableOpacity onPress={handleDelete} activeOpacity={0.7}>
-                <Ionicons name="trash-outline" size={22} color="rgba(255,255,255,0.6)" />
-              </TouchableOpacity>
-            </View>
-          </View>
-
-          <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingBottom: 100 }}>
-            {/* Title & Occasion */}
-            <View className="px-5 pt-5 pb-4">
-              <Text style={{ fontFamily: 'HelveticaNeue-Bold' }} className="text-white text-3xl font-bold mb-3">
-                {outfit.name || 'Untitled Outfit'}
-              </Text>
-              {outfit.occasion && (
-                <View className="self-start bg-[#FF6B35]/20 border border-[#FF6B35]/50 rounded-full px-4 py-2">
-                  <Text className="text-[#FF6B35] text-xs font-bold uppercase tracking-widest" style={{ fontFamily: 'HelveticaNeue-Bold' }}>
-                    {outfit.occasion}
-                  </Text>
-                </View>
-              )}
+              <View style={styles.headerActions}>
+                <TouchableOpacity
+                  onPress={() => router.push(`/wardrobe/outfit-edit?id=${id}` as any)}
+                  style={styles.headerIconBtn}
+                >
+                  <Ionicons name="pencil" size={20} color="rgba(255,255,255,0.6)" />
+                </TouchableOpacity>
+                <TouchableOpacity onPress={handleDelete} style={[styles.headerIconBtn, { backgroundColor: 'rgba(255,59,48,0.1)' }]}>
+                  <Ionicons name="trash-outline" size={20} color="#FF3B30" />
+                </TouchableOpacity>
+              </View>
             </View>
 
-            {/* AI Rating Card */}
-            <View className="mx-5 mb-8 bg-white/5 rounded-[24px] p-6 border border-white/10 shadow-lg shadow-black/20">
-              <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }} className="text-white/40 text-xs uppercase tracking-widest mb-3">
-                AI Rating
-              </Text>
+            <ScrollView showsVerticalScrollIndicator={false} contentContainerStyle={styles.scrollContent}>
+              {/* Info Header */}
+              <View style={styles.infoHeader}>
+                <Text style={styles.outfitTitle}>{outfit.name || 'Untitled Outfit'}</Text>
+                {outfit.occasion && (
+                  <View style={styles.occasionBadge}>
+                    <Text style={styles.occasionText}>{outfit.occasion.replace(/_/g, ' ').toUpperCase()}</Text>
+                  </View>
+                )}
+              </View>
+
+              {/* AI Rating */}
               {outfit.ai_rating ? (
-                <>
-                  <View className="flex-row items-baseline">
-                    <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }} className="text-[#FF6B35] text-5xl">
-                      {outfit.ai_rating.toFixed(1)}
-                    </Text>
-                    <Text className="text-white/20 text-xl font-light ml-1" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Light' }}>
-                      / 10
-                    </Text>
+                <View style={styles.ratingCard}>
+                  <View style={styles.ratingHeader}>
+                    <Ionicons name="sparkles" size={14} color={COLORS.primary} />
+                    <Text style={styles.ratingLabel}>AI SCORE</Text>
+                  </View>
+                  <View style={styles.scoreRow}>
+                    <Text style={styles.scoreValue}>{outfit.ai_rating.toFixed(1)}</Text>
+                    <Text style={styles.scoreMax}>/ 10</Text>
                   </View>
                   {outfit.ai_feedback && (
-                    <Text className="text-white/70 text-base mt-4 leading-6" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}>
-                      {outfit.ai_feedback}
-                    </Text>
+                    <Text style={styles.feedbackText}>{outfit.ai_feedback}</Text>
                   )}
-                </>
+                </View>
               ) : (
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 10, paddingVertical: 8 }}>
-                  <ActivityIndicator size="small" color="#FF6B35" />
-                  <Text className="text-white/40 text-sm" style={{ fontFamily: 'HelveticaNeue' }}>
-                    AI rating in progress...
-                  </Text>
+                <View style={styles.ratingPending}>
+                  <ActivityIndicator size="small" color={COLORS.primary} />
+                  <Text style={styles.ratingPendingText}>Analyzing look...</Text>
                 </View>
               )}
-            </View>
 
-            {/* Items Horizontal Scroll */}
-            <View>
-              <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }} className="text-white/40 text-xs px-5 mb-4 uppercase tracking-widest">
-                Items in this Outfit
-              </Text>
-              <ScrollView
-                horizontal
-                showsHorizontalScrollIndicator={false}
-                contentContainerStyle={{ paddingHorizontal: 20, gap: 12 }}
-              >
-                {(outfit.items ?? []).map((item: any) => (
-                  <TouchableOpacity
-                    key={item.id}
-                    onPress={() => router.push(`/wardrobe/item-detail?id=${item.id}` as any)}
-                    className="w-32"
-                    activeOpacity={0.8}
-                  >
-                    <View className="w-32 h-32 rounded-2xl overflow-hidden bg-white/5 border border-white/10">
-                      <OutfitItemThumbnail uri={item.image_url} />
-                    </View>
-                    <Text
-                      style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}
-                      className="text-white text-xs mt-2 text-center"
-                      numberOfLines={1}
+              {/* Items */}
+              <View style={styles.itemsSection}>
+                <Text style={styles.sectionTitle}>PIECES</Text>
+                <View style={styles.itemsGrid}>
+                  {(outfit.items ?? []).map((item: any) => (
+                    <TouchableOpacity
+                      key={item.id}
+                      onPress={() => router.push(`/wardrobe/item-detail?id=${item.id}` as any)}
+                      activeOpacity={0.9}
+                      style={styles.itemCard}
                     >
-                      {item.name || item.fashionclip_main_category || 'Item'}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
-              </ScrollView>
-            </View>
-          </ScrollView>
-        </SafeAreaView>
-      </LinearGradient>
+                      <View style={styles.itemThumbWrapper}>
+                        <OutfitItemThumbnail uri={item.image_url} />
+                      </View>
+                      <View style={styles.itemInfo}>
+                        <Text style={styles.itemName} numberOfLines={1}>
+                          {item.name || 'Item'}
+                        </Text>
+                      </View>
+                      <Ionicons name="chevron-forward" size={16} color="rgba(255,255,255,0.15)" />
+                    </TouchableOpacity>
+                  ))}
+                </View>
+              </View>
+            </ScrollView>
+          </SafeAreaView>
+        </LinearGradient>
       )}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000' },
+  emptyContainer: { flex: 1, justifyContent: 'center', alignItems: 'center' },
+  emptyText: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.4)', fontSize: 14, letterSpacing: 2 },
+  backBtn: { marginTop: 24, paddingHorizontal: 25, height: 50, borderRadius: 25, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
+  backBtnText: { fontFamily: FONTS.light, color: '#fff', fontSize: 12, letterSpacing: 2 },
+  
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, height: 60 },
+  headerIconBtn: { width: 44, height: 44, borderRadius: 22, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
+  headerActions: { flexDirection: 'row', gap: 12 },
+  
+  scrollContent: { paddingBottom: 100 },
+  infoHeader: { paddingHorizontal: 25, paddingTop: 10, paddingBottom: 25 },
+  outfitTitle: { fontFamily: FONTS.light, color: '#fff', fontSize: 30, letterSpacing: 1, marginBottom: 12 },
+  occasionBadge: { alignSelf: 'flex-start', paddingHorizontal: 14, paddingVertical: 7, borderRadius: 10, backgroundColor: 'rgba(255,255,255,0.05)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' },
+  occasionText: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.5)', fontSize: 10, letterSpacing: 2 },
+  
+  ratingCard: { marginHorizontal: 20, borderRadius: 24, padding: 22, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', marginBottom: 30 },
+  ratingHeader: { flexDirection: 'row', alignItems: 'center', gap: 8, marginBottom: 15 },
+  ratingLabel: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.4)', fontSize: 10, letterSpacing: 3 },
+  scoreRow: { flexDirection: 'row', alignItems: 'baseline' },
+  scoreValue: { fontFamily: FONTS.light, color: COLORS.primary, fontSize: 48 },
+  scoreMax: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.2)', fontSize: 20, marginLeft: 4 },
+  feedbackText: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.5)', fontSize: 13, lineHeight: 22, marginTop: 15, paddingTop: 15, borderTopWidth: 1, borderTopColor: 'rgba(255,255,255,0.05)' },
+  ratingPending: { marginHorizontal: 20, paddingVertical: 30, alignItems: 'center', gap: 12, marginBottom: 30 },
+  ratingPendingText: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.3)', fontSize: 12 },
+  
+  itemsSection: { marginTop: 10 },
+  sectionTitle: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.2)', fontSize: 10, letterSpacing: 4, marginLeft: 25, marginBottom: 15 },
+  itemsGrid: { paddingHorizontal: 20, gap: 12 },
+  itemCard: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 20, padding: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  itemThumbWrapper: { width: 65, height: 65, borderRadius: 14, overflow: 'hidden', backgroundColor: '#111' },
+  itemInfo: { flex: 1, marginLeft: 14 },
+  itemName: { fontFamily: FONTS.light, color: '#fff', fontSize: 14 },
+  
+  thumbContainer: { width: '100%', height: '100%' },
+  thumbPlaceholder: { flex: 1, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
+  thumbLoader: { alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.02)' },
+  thumbImage: { width: '100%', height: '100%' },
+});

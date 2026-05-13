@@ -1,112 +1,95 @@
 import React, { useState } from 'react';
 import {
   View, Text, ScrollView, TouchableOpacity, Image,
-  ActivityIndicator, RefreshControl, FlatList, Alert,
+  ActivityIndicator, RefreshControl, Alert,
+  StyleSheet, Dimensions,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import BottomNav from './components/BottomNav';
 import { apiClient } from '../src/lib/apiClient';
 import { Skeleton } from '../src/components/Skeleton';
 import { EmptyState } from '../src/components/EmptyState';
 import ModeSwitchOverlay from './components/ModeSwitchOverlay';
+import { COLORS, FONTS } from '../src/constants/theme';
+
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
 
 // Slot display config
 const SLOT_CONFIG: Record<string, { label: string; icon: string }> = {
   upperwear: { label: 'Tops', icon: 'shirt-outline' },
   lowerwear: { label: 'Bottoms', icon: 'body-outline' },
   outerwear: { label: 'Outerwear', icon: 'cloud-outline' },
-  // Frontend-only pseudo-slot: footwear is physically stored as accessories in DB,
-  // but rendered separately for better UX using fashionclip_main_category.
   footwear: { label: 'Footwear', icon: 'footsteps-outline' },
   accessories: { label: 'Accessories', icon: 'glasses-outline' },
 };
 
-// Shimmer card for items still being classified
 function ClassifyingCard() {
   return (
-    <View
-      style={{
-        width: 100, height: 120, borderRadius: 16,
-        backgroundColor: 'rgba(255,107,53,0.08)',
-        borderWidth: 1, borderColor: 'rgba(255,107,53,0.25)',
-        alignItems: 'center', justifyContent: 'center',
-        marginRight: 12,
-      }}
-    >
-      <ActivityIndicator size="small" color="#FF6B35" />
-      <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,107,53,0.8)', fontSize: 10, marginTop: 6, textAlign: 'center' }}>
-        Classifying…
-      </Text>
+    <View style={styles.classifyingCard}>
+      <ActivityIndicator size="small" color={COLORS.primary} />
+      <Text style={styles.classifyingText}>ANALYZING</Text>
     </View>
   );
 }
 
-// ─── Outfit card (2-col grid) ────────────────────────────────────────────────
-function OutfitCard({ outfit }: { outfit: any }) {
+// ─── Flat-lay outfit card (items stacked vertically on dark bg) ──────────────
+function FlatLayCard({ plan }: { plan: any }) {
   const router = useRouter();
-  const items: any[] = outfit.items ?? [];
+  const items: any[] = plan.items ?? [];
+  const dayShort = String(plan.day_of_week ?? '').slice(0, 3);
+
   return (
     <TouchableOpacity
-      onPress={() => router.push(`/wardrobe/outfit-detail?id=${outfit.id}` as any)}
-      activeOpacity={0.85}
-      style={{
-        flex: 1,
-        margin: 6,
-        borderRadius: 20,
-        overflow: 'hidden',
-        backgroundColor: 'rgba(255,255,255,0.05)',
-        borderWidth: 1,
-        borderColor: 'rgba(255,255,255,0.09)',
-      }}
+      activeOpacity={0.9}
+      onPress={() => plan.outfit_id ? router.push(`/wardrobe/outfit-detail?id=${plan.outfit_id}` as any) : null}
+      style={styles.flatLayCard}
     >
-      {/* Cover image or 2×2 collage */}
-      {outfit.cover_image_url ? (
-        <Image
-          source={{ uri: outfit.cover_image_url }}
-          style={{ width: '100%', aspectRatio: 1 }}
-          resizeMode="cover"
-        />
-      ) : (
-        <View style={{ width: '100%', aspectRatio: 1, flexDirection: 'row', flexWrap: 'wrap' }}>
-          {items.slice(0, 4).map((item: any, i: number) => (
-            <Image
-              key={i}
-              source={{ uri: item.image_url }}
-              style={{ width: '50%', height: '50%', backgroundColor: 'rgba(255,255,255,0.04)' }}
-              resizeMode="cover"
-            />
-          ))}
-          {items.length === 0 && (
-            <View style={{ flex: 1, alignItems: 'center', justifyContent: 'center' }}>
-              <Ionicons name="shirt-outline" size={36} color="rgba(255,255,255,0.18)" />
-            </View>
-          )}
-        </View>
-      )}
-
-      {/* Info row */}
-      <View style={{ padding: 10 }}>
-        <Text
-          style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 13 }}
-          numberOfLines={1}
-        >
-          {outfit.name || 'Untitled Outfit'}
-        </Text>
-        <View style={{ flexDirection: 'row', alignItems: 'center', marginTop: 4, gap: 8 }}>
-          {outfit.occasion ? (
-            <Text style={{ fontFamily: 'HelveticaNeue', color: '#FF6B35', fontSize: 11, textTransform: 'capitalize' }}>
-              {outfit.occasion.replace(/_/g, ' ')}
-            </Text>
-          ) : null}
-          <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.35)', fontSize: 11 }}>
-            {items.length} item{items.length !== 1 ? 's' : ''}
-          </Text>
-        </View>
+      {/* Day Label */}
+      <View style={styles.flatLayDayBadge}>
+        <Text style={styles.flatLayDayText}>{dayShort.toUpperCase()}</Text>
       </View>
+
+      {/* Items arranged vertically — flat-lay style */}
+      <View style={styles.flatLayItems}>
+        {items.length === 0 ? (
+          <View style={styles.flatLayEmpty}>
+            <Ionicons name="shirt-outline" size={32} color="rgba(255,255,255,0.08)" />
+          </View>
+        ) : (
+          items.slice(0, 5).map((item: any, idx: number) => {
+            if (!item?.image_url) return null;
+            // Size items based on type — tops/bottoms bigger, accessories smaller
+            const isSmall = item.wardrobe_slot === 'accessories' || item.wardrobe_slot === 'footwear';
+            const size = isSmall ? SCREEN_WIDTH * 0.22 : SCREEN_WIDTH * 0.32;
+            // Stagger positions for visual interest
+            const offsetX = idx % 2 === 0 ? -8 : 8;
+            return (
+              <Image
+                key={item.id ?? idx}
+                source={{ uri: item.image_url }}
+                style={{
+                  width: size,
+                  height: size,
+                  borderRadius: 12,
+                  marginTop: idx === 0 ? 0 : -10,
+                  alignSelf: 'center',
+                  transform: [{ translateX: offsetX }],
+                }}
+                resizeMode="contain"
+              />
+            );
+          })
+        )}
+      </View>
+
+      {/* Occasion / info */}
+      {plan.occasion && (
+        <Text style={styles.flatLayOccasion}>{plan.occasion.replace(/_/g, ' ')}</Text>
+      )}
     </TouchableOpacity>
   );
 }
@@ -127,96 +110,29 @@ const WardrobeScreen = () => {
     queryFn: () => apiClient.get('/wardrobe/items?limit=100').then(r => r.data),
   });
 
-  // ─── Outfits Query ────────────────────────────────────────────────────────
+  // ─── Weekly Plans Query (for outfits tab) ─────────────────────────────────
   const {
-    data: outfitsData,
-    isLoading: outfitsLoading,
-    refetch: refetchOutfits,
-    isRefetching: outfitsRefetching,
+    data: plansData,
+    isLoading: plansLoading,
+    refetch: refetchPlans,
+    isRefetching: plansRefetching,
   } = useQuery({
-    queryKey: ['outfits'],
-    queryFn: () => apiClient.get('/wardrobe/outfits?limit=50').then(r => r.data),
+    queryKey: ['weekly-plans'],
+    queryFn: () => apiClient.get('/recommendations/weekly/plans').then(r => r.data),
     enabled: activeTab === 'outfits',
   });
 
-  // ─── Recommendations ──────────────────────────────────────────────────────
-  const { data: recsData, isLoading: recsLoading } = useQuery({
-    queryKey: ['recommendations'],
-    queryFn: () => apiClient.get('/recommendations?status=all&limit=20').then(r => r.data),
-    enabled: activeTab === 'items',
-    // Poll while Celery is still rating outfits (pending → completed)
-    refetchInterval: (q) => {
-      const raw = q.state.data as { recommendations?: unknown[]; data?: unknown[] } | undefined;
-      const list = raw?.recommendations ?? raw?.data ?? [];
-      return Array.isArray(list) &&
-        list.some((r: unknown) => (r as { ai_status?: string }).ai_status === 'pending')
-        ? 8000
-        : false;
-    },
-  });
-
-  const generateMutation = useMutation({
-    // Backend schema expects a JSON object; axios was sending no body with
-    // Content-Type: application/json, which triggers AJV "Validation failed".
-    mutationFn: (vars?: { forceRefresh?: boolean }) =>
-      apiClient.post(
-        '/recommendations/generate',
-        vars?.forceRefresh ? { force_refresh: true } : {}
-      ),
-    onSuccess: (res) => {
-      qc.invalidateQueries({ queryKey: ['recommendations'] });
-      const data = res?.data;
-      if (data?.generated === 0 && typeof data?.message === 'string') {
-        Alert.alert('Recommendations', data.message, [
-          { text: 'OK', style: 'cancel' },
-          {
-            text: 'Regenerate anyway',
-            onPress: () => generateMutation.mutate({ forceRefresh: true }),
-          },
-        ]);
-      }
-    },
-    onError: (err: any) => {
-      const d = err?.response?.data;
-      let msg =
-        d?.error ??
-        d?.message ??
-        (err?.message && err.message !== 'Network Error'
-          ? err.message
-          : 'Could not generate recommendations.');
-      const details = d?.details;
-      if (Array.isArray(details) && details.length > 0) {
-        const line = details
-          .map((x: { field?: string; message?: string }) =>
-            [x.field, x.message].filter(Boolean).join(': ')
-          )
-          .join('\n');
-        msg = `${msg}\n${line}`;
-      }
-      if (err?.response?.status === 429 && d?.retryAfter) {
-        msg = `${msg} Try again in ${d.retryAfter}.`;
-      }
-      Alert.alert('Generate Failed', msg);
-    },
-  });
-
-  const saveMutation = useMutation({
-    mutationFn: (id: string) => apiClient.post(`/recommendations/${id}/save`),
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['recommendations'] });
-      qc.invalidateQueries({ queryKey: ['outfits'] });
-    },
-  });
-
-  const dismissMutation = useMutation({
-    mutationFn: (id: string) => apiClient.post(`/recommendations/${id}/dismiss`),
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['recommendations'] }),
-  });
-
   const items: any[] = itemsData?.items ?? itemsData?.data ?? [];
-  const outfits: any[] = outfitsData?.outfits ?? outfitsData?.data ?? [];
-  const recs: any[] = recsData?.recommendations ?? recsData?.data ?? [];
+  const plans: any[] = plansData?.plans ?? [];
   const pending = items.filter((i: any) => !i.wardrobe_slot);
+
+  // Sort plans by day order
+  const dayOrder = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'];
+  const sortedPlans = [...plans].sort((a, b) => {
+    const aIdx = dayOrder.indexOf(a.day_of_week);
+    const bIdx = dayOrder.indexOf(b.day_of_week);
+    return (aIdx === -1 ? 99 : aIdx) - (bIdx === -1 ? 99 : bIdx);
+  });
 
   // Per-slot counts + first image for thumbnail
   const isFootwear = (i: any) => {
@@ -234,55 +150,30 @@ const WardrobeScreen = () => {
   });
 
   return (
-    <View style={{ flex: 1, backgroundColor: '#000' }}>
-      <LinearGradient
-        colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']}
-        style={{ flex: 1 }}
-      >
+    <View style={styles.container}>
+      <LinearGradient colors={['#000', '#0a0a0a', '#121212']} style={{ flex: 1 }}>
         <SafeAreaView style={{ flex: 1 }}>
 
-          {/* ── Sticky Header + Tab Bar ── */}
-          <View style={{ paddingHorizontal: 20, paddingTop: 16, paddingBottom: 12 }}>
-            <View style={{ flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20 }}>
-              <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 30 }}>
-                Wardrobe
-              </Text>
-              <TouchableOpacity
-                style={{ backgroundColor: 'rgba(255,255,255,0.1)', padding: 10, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.1)' }}
-              >
-                <Ionicons name="search-outline" size={22} color="white" />
-              </TouchableOpacity>
-            </View>
+          {/* ── Header ── */}
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>WARDROBE</Text>
+            <TouchableOpacity style={styles.headerBtn}>
+              <Ionicons name="search" size={20} color="#fff" />
+            </TouchableOpacity>
+          </View>
 
-            {/* Tab toggle pill */}
-            <View style={{
-              flexDirection: 'row',
-              backgroundColor: 'rgba(255,255,255,0.07)',
-              borderRadius: 999,
-              padding: 4,
-              borderWidth: 1,
-              borderColor: 'rgba(255,255,255,0.08)',
-            }}>
+          {/* ── Tab Bar ── */}
+          <View style={styles.tabContainer}>
+            <View style={styles.tabBar}>
               {(['items', 'outfits'] as const).map(tab => (
                 <TouchableOpacity
                   key={tab}
                   onPress={() => setActiveTab(tab)}
                   activeOpacity={0.8}
-                  style={{
-                    flex: 1,
-                    paddingVertical: 9,
-                    borderRadius: 999,
-                    alignItems: 'center',
-                    backgroundColor: activeTab === tab ? '#FF6B35' : 'transparent',
-                  }}
+                  style={[styles.tab, activeTab === tab && styles.tabActive]}
                 >
-                  <Text style={{
-                    fontFamily: 'HelveticaNeue-Medium',
-                    color: activeTab === tab ? '#fff' : 'rgba(255,255,255,0.55)',
-                    fontSize: 14,
-                    textTransform: 'capitalize',
-                  }}>
-                    {tab === 'items' ? 'Items' : 'Outfits'}
+                  <Text style={[styles.tabText, activeTab === tab && styles.tabTextActive]}>
+                    {tab.toUpperCase()}
                   </Text>
                 </TouchableOpacity>
               ))}
@@ -292,45 +183,45 @@ const WardrobeScreen = () => {
           {/* ── Items Tab ── */}
           {activeTab === 'items' ? (
             <ScrollView
-              contentContainerStyle={{ paddingBottom: 140 }}
+              contentContainerStyle={styles.scrollContent}
               showsVerticalScrollIndicator={false}
               refreshControl={
-                <RefreshControl refreshing={isRefetching} onRefresh={refetchItems} tintColor="#FF6B35" />
+                <RefreshControl refreshing={isRefetching} onRefresh={refetchItems} tintColor={COLORS.primary} />
               }
             >
-              <View style={{ paddingHorizontal: 20 }}>
+              <View style={{ paddingHorizontal: 25 }}>
 
-                {/* ── Add Item CTA ── */}
+                {/* Add Item CTA */}
                 <TouchableOpacity
                   onPress={() => router.push('/wardrobe/item-upload' as any)}
                   activeOpacity={0.9}
-                  style={{
-                    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                    backgroundColor: '#FF6B35', borderRadius: 24, padding: 20, marginBottom: 32,
-                    shadowColor: '#FF6B35', shadowOpacity: 0.3, shadowRadius: 12, shadowOffset: { width: 0, height: 4 },
-                  }}
+                  style={styles.addCta}
                 >
+                  <LinearGradient
+                    colors={[COLORS.primary, '#E85A2A']}
+                    start={{ x: 0, y: 0 }}
+                    end={{ x: 1, y: 0 }}
+                    style={StyleSheet.absoluteFillObject}
+                  />
                   <View>
-                    <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 18 }}>Add New Item</Text>
-                    <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.8)', fontSize: 13, marginTop: 2 }}>
-                      Upload or scan your clothes
-                    </Text>
+                    <Text style={styles.addCtaTitle}>ADD NEW PIECE</Text>
+                    <Text style={styles.addCtaSubtitle}>Expand your digital collection</Text>
                   </View>
-                  <View style={{ width: 40, height: 40, backgroundColor: 'rgba(255,255,255,0.2)', borderRadius: 999, alignItems: 'center', justifyContent: 'center' }}>
-                    <Ionicons name="add" size={24} color="white" />
+                  <View style={styles.addCtaIcon}>
+                    <Ionicons name="add" size={24} color="#fff" />
                   </View>
                 </TouchableOpacity>
 
-                {/* ── Pending Classification ── */}
+                {/* Pending */}
                 {pending.length > 0 && (
-                  <View style={{ marginBottom: 28 }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center', marginBottom: 12 }}>
-                      <ActivityIndicator size="small" color="#FF6B35" style={{ marginRight: 8 }} />
-                      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#FF6B35', fontSize: 13 }}>
-                        {pending.length} item{pending.length > 1 ? 's' : ''} being classified…
+                  <View style={styles.pendingSection}>
+                    <View style={styles.pendingHeader}>
+                      <ActivityIndicator size="small" color={COLORS.primary} />
+                      <Text style={styles.pendingTitle}>
+                        {pending.length} ITEM{pending.length > 1 ? 'S' : ''} PROCESSING
                       </Text>
                     </View>
-                    <ScrollView horizontal showsHorizontalScrollIndicator={false} style={{ marginHorizontal: -20, paddingHorizontal: 20 }}>
+                    <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.pendingScroll}>
                       {pending.map((_: any, idx: number) => (
                         <ClassifyingCard key={idx} />
                       ))}
@@ -338,141 +229,107 @@ const WardrobeScreen = () => {
                   </View>
                 )}
 
-                {/* ── Categories ── */}
-                <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 20, marginBottom: 16 }}>
-                  Categories
-                </Text>
+                {/* Collections */}
+                <Text style={styles.sectionTitle}>COLLECTIONS</Text>
 
                 {itemsLoading ? (
-                  <ModeSwitchOverlay />
+                  <View style={{ height: 200, justifyContent: 'center' }}>
+                    <ActivityIndicator color={COLORS.primary} />
+                  </View>
                 ) : (
-                  <View style={{ flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -8, marginBottom: 28 }}>
+                  <View style={styles.categoryGrid}>
                     {slotMeta.map(({ slot, count, thumb }) => {
                       const cfg = SLOT_CONFIG[slot];
                       return (
-                        <View key={slot} style={{ width: '50%', paddingHorizontal: 8, marginBottom: 16 }}>
-                          <TouchableOpacity
-                            activeOpacity={0.9}
-                            onPress={() => router.push(`/wardrobe/wardrobe-grid?slot=${slot}&title=${cfg.label}` as any)}
-                            style={{ borderRadius: 24, overflow: 'hidden', height: 180 }}
+                        <TouchableOpacity
+                          key={slot}
+                          activeOpacity={0.9}
+                          onPress={() => router.push(`/wardrobe/wardrobe-grid?slot=${slot}&title=${cfg.label}` as any)}
+                          style={styles.categoryCard}
+                        >
+                          {thumb ? (
+                            <Image source={{ uri: thumb }} style={styles.categoryImg} resizeMode="cover" />
+                          ) : (
+                            <View style={styles.categoryPlaceholder}>
+                              <Ionicons name={cfg.icon as any} size={32} color="rgba(255,255,255,0.1)" />
+                            </View>
+                          )}
+                          <LinearGradient
+                            colors={['transparent', 'rgba(0,0,0,0.6)', 'rgba(0,0,0,0.95)']}
+                            style={styles.categoryOverlay}
                           >
-                            {thumb ? (
-                              <Image
-                                source={{ uri: thumb }}
-                                style={{ width: '100%', height: '100%', position: 'absolute' }}
-                                resizeMode="cover"
-                              />
-                            ) : (
-                              <View style={{ width: '100%', height: '100%', backgroundColor: 'rgba(255,255,255,0.05)', position: 'absolute', alignItems: 'center', justifyContent: 'center' }}>
-                                <Ionicons name={cfg.icon as any} size={40} color="rgba(255,255,255,0.2)" />
-                              </View>
-                            )}
-                            <LinearGradient
-                              colors={['transparent', 'rgba(0,0,0,0.45)', 'rgba(0,0,0,0.9)']}
-                              style={{ flex: 1, justifyContent: 'flex-end', padding: 16 }}
-                            >
-                              <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 18 }}>
-                                {cfg.label}
-                              </Text>
-                              <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.7)', fontSize: 12, marginTop: 2 }}>
-                                {count} item{count !== 1 ? 's' : ''}
-                              </Text>
-                            </LinearGradient>
-                          </TouchableOpacity>
-                        </View>
+                            <Text style={styles.categoryLabel}>{cfg.label.toUpperCase()}</Text>
+                            <Text style={styles.categoryCount}>{count} PIECES</Text>
+                          </LinearGradient>
+                        </TouchableOpacity>
                       );
                     })}
                   </View>
                 )}
 
-                {/* ── AI Fits Section ── */}
-                <View style={{ marginTop: 8, marginBottom: 16 }}>
-                  <View style={{ 
-                    flexDirection: 'row', 
-                    alignItems: 'center', 
-                    justifyContent: 'space-between', 
-                    backgroundColor: 'rgba(255,255,255,0.05)',
-                    padding: 18,
-                    borderRadius: 24,
-                    borderWidth: 1,
-                    borderColor: 'rgba(255,255,255,0.1)'
-                  }}>
-                    <View style={{ flexDirection: 'row', alignItems: 'center' }}>
-                      <Ionicons name="sparkles" size={22} color="#FF6B35" style={{ marginRight: 10 }} />
-                      <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 20 }}>
-                        AI Fits
-                      </Text>
-                    </View>
-                    
-                    <TouchableOpacity
-                      onPress={() => router.push('/weekly-plan' as any)}
-                      activeOpacity={0.8}
-                      style={{
-                        flexDirection: 'row', alignItems: 'center',
-                        backgroundColor: 'rgba(255,255,255,0.07)',
-                        borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)',
-                        paddingHorizontal: 14, paddingVertical: 8, borderRadius: 999,
-                      }}
-                    >
-                      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.85)', fontSize: 13 }}>
-                        Plan Weekly
-                      </Text>
-                      <Ionicons name="chevron-forward" size={14} color="rgba(255,255,255,0.6)" style={{ marginLeft: 5 }} />
-                    </TouchableOpacity>
+                {/* AI Fits CTA */}
+                <TouchableOpacity
+                  onPress={() => router.push('/weekly-plan' as any)}
+                  activeOpacity={0.9}
+                  style={styles.aiFitsCta}
+                >
+                  <View style={styles.aiFitsHeader}>
+                    <Ionicons name="sparkles" size={20} color={COLORS.primary} />
+                    <Text style={styles.aiFitsTitle}>AI CURATED FITS</Text>
                   </View>
-                </View>
+                  <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.3)" />
+                </TouchableOpacity>
 
               </View>
             </ScrollView>
 
           ) : (
-            /* ── Outfits Tab ── */
-            <FlatList
-              data={outfits}
-              numColumns={2}
-              keyExtractor={(item) => item.id}
-              contentContainerStyle={{ paddingHorizontal: 10, paddingBottom: 140, flexGrow: 1 }}
+            /* ── Outfits Tab — Weekly Plan Day Cards ── */
+            <ScrollView
+              contentContainerStyle={styles.outfitsScrollContent}
               showsVerticalScrollIndicator={false}
               refreshControl={
-                <RefreshControl refreshing={outfitsRefetching} onRefresh={refetchOutfits} tintColor="#FF6B35" />
+                <RefreshControl refreshing={plansRefetching} onRefresh={refetchPlans} tintColor={COLORS.primary} />
               }
-              ListHeaderComponent={
+            >
+              {/* Header row */}
+              <View style={styles.outfitsHeader}>
+                <Text style={styles.outfitsSectionTitle}>WEEKLY LOOKS</Text>
                 <TouchableOpacity
-                  onPress={() => router.push('/wardrobe/outfit-create' as any)}
-                  activeOpacity={0.9}
-                  style={{
-                    flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between',
-                    backgroundColor: 'rgba(255,107,53,0.12)',
-                    borderWidth: 1, borderColor: 'rgba(255,107,53,0.3)',
-                    borderRadius: 20, padding: 16, marginBottom: 12, marginHorizontal: 6,
-                  }}
+                  onPress={() => router.push('/weekly-plan' as any)}
+                  style={styles.manageBtn}
                 >
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 12 }}>
-                    <View style={{ width: 36, height: 36, borderRadius: 999, backgroundColor: '#FF6B35', alignItems: 'center', justifyContent: 'center' }}>
-                      <Ionicons name="add" size={22} color="white" />
-                    </View>
-                    <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#FF6B35', fontSize: 15 }}>
-                      Create New Outfit
-                    </Text>
-                  </View>
-                  <Ionicons name="arrow-forward" size={18} color="rgba(255,107,53,0.7)" />
+                  <Text style={styles.manageBtnText}>MANAGE</Text>
+                  <Ionicons name="chevron-forward" size={14} color={COLORS.primary} />
                 </TouchableOpacity>
-              }
-              renderItem={({ item }) => <OutfitCard outfit={item} />}
-              ListEmptyComponent={
-                outfitsLoading ? (
-                  <ModeSwitchOverlay />
-                ) : (
-                  <EmptyState
-                    icon="shirt-outline"
-                    title="No outfits yet"
-                    subtitle="Create your first outfit from your wardrobe items"
-                    actionLabel="Create Outfit"
-                    onAction={() => router.push('/wardrobe/outfit-create' as any)}
-                  />
-                )
-              }
-            />
+              </View>
+
+              {plansLoading ? (
+                <View style={{ paddingTop: 80 }}>
+                  <ActivityIndicator color={COLORS.primary} size="large" />
+                </View>
+              ) : sortedPlans.length === 0 ? (
+                <View style={styles.emptyOutfits}>
+                  <Ionicons name="calendar-outline" size={44} color="rgba(255,255,255,0.1)" />
+                  <Text style={styles.emptyOutfitsTitle}>No weekly plan yet</Text>
+                  <Text style={styles.emptyOutfitsSubtitle}>Generate AI-curated outfits for each day</Text>
+                  <TouchableOpacity
+                    onPress={() => router.push('/weekly-plan' as any)}
+                    style={styles.generateBtn}
+                  >
+                    <Ionicons name="sparkles" size={16} color="#fff" style={{ marginRight: 8 }} />
+                    <Text style={styles.generateBtnText}>CREATE WEEKLY PLAN</Text>
+                  </TouchableOpacity>
+                </View>
+              ) : (
+                /* Day cards in a 2-column grid */
+                <View style={styles.dayCardsGrid}>
+                  {sortedPlans.map((plan) => (
+                    <FlatLayCard key={plan.id} plan={plan} />
+                  ))}
+                </View>
+              )}
+            </ScrollView>
           )}
 
           <BottomNav active="wardrobe" />
@@ -481,5 +338,94 @@ const WardrobeScreen = () => {
     </View>
   );
 };
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 25, height: 70 },
+  headerTitle: { fontFamily: FONTS.light, color: '#fff', fontSize: 24, letterSpacing: 5 },
+  headerBtn: { width: 40, height: 40, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center' },
+  
+  tabContainer: { paddingHorizontal: 25, marginBottom: 25 },
+  tabBar: { flexDirection: 'row', backgroundColor: 'rgba(255,255,255,0.04)', borderRadius: 20, padding: 4, borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  tab: { flex: 1, height: 44, borderRadius: 16, alignItems: 'center', justifyContent: 'center' },
+  tabActive: { backgroundColor: COLORS.primary },
+  tabText: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.4)', fontSize: 12, letterSpacing: 2 },
+  tabTextActive: { color: '#fff' },
+  
+  scrollContent: { paddingBottom: 120 },
+  addCta: { height: 90, borderRadius: 28, overflow: 'hidden', flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 25, marginBottom: 35, elevation: 5, shadowColor: COLORS.primary, shadowRadius: 15, shadowOpacity: 0.3 },
+  addCtaTitle: { fontFamily: FONTS.light, color: '#fff', fontSize: 18, letterSpacing: 1 },
+  addCtaSubtitle: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.8)', fontSize: 12, marginTop: 2 },
+  addCtaIcon: { width: 44, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.2)', alignItems: 'center', justifyContent: 'center' },
+  
+  pendingSection: { marginBottom: 35 },
+  pendingHeader: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 15 },
+  pendingTitle: { fontFamily: FONTS.light, color: COLORS.primary, fontSize: 10, letterSpacing: 2 },
+  pendingScroll: { gap: 12 },
+  classifyingCard: { width: 110, height: 140, borderRadius: 24, backgroundColor: 'rgba(255,107,53,0.05)', borderWidth: 1, borderColor: 'rgba(255,107,53,0.2)', alignItems: 'center', justifyContent: 'center' },
+  classifyingText: { fontFamily: FONTS.light, color: COLORS.primary, fontSize: 8, letterSpacing: 2, marginTop: 8 },
+  
+  sectionTitle: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.2)', fontSize: 10, letterSpacing: 4, marginBottom: 20 },
+  categoryGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -8, marginBottom: 25 },
+  categoryCard: { width: '50%', padding: 8, height: 220 },
+  categoryImg: { width: '100%', height: '100%', borderRadius: 32 },
+  categoryPlaceholder: { width: '100%', height: '100%', borderRadius: 32, backgroundColor: 'rgba(255,255,255,0.03)', alignItems: 'center', justifyContent: 'center' },
+  categoryOverlay: { position: 'absolute', inset: 8, borderRadius: 32, justifyContent: 'flex-end', padding: 20 },
+  categoryLabel: { fontFamily: FONTS.light, color: '#fff', fontSize: 14, letterSpacing: 2 },
+  categoryCount: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.5)', fontSize: 10, marginTop: 4 },
+  
+  aiFitsCta: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', padding: 20, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)' },
+  aiFitsHeader: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  aiFitsTitle: { fontFamily: FONTS.light, color: '#fff', fontSize: 16, letterSpacing: 2 },
+  
+  // ── Outfits Tab ──
+  outfitsScrollContent: { paddingHorizontal: 20, paddingBottom: 140 },
+  outfitsHeader: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'center', marginBottom: 20 },
+  outfitsSectionTitle: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.3)', fontSize: 10, letterSpacing: 4 },
+  manageBtn: { flexDirection: 'row', alignItems: 'center', gap: 4 },
+  manageBtnText: { fontFamily: FONTS.light, color: COLORS.primary, fontSize: 10, letterSpacing: 1 },
+
+  // Empty outfits
+  emptyOutfits: { alignItems: 'center', paddingTop: 60 },
+  emptyOutfitsTitle: { fontFamily: FONTS.light, color: '#fff', fontSize: 18, marginTop: 20 },
+  emptyOutfitsSubtitle: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.4)', fontSize: 13, marginTop: 8, textAlign: 'center' },
+  generateBtn: { flexDirection: 'row', alignItems: 'center', marginTop: 28, height: 50, paddingHorizontal: 28, borderRadius: 25, backgroundColor: COLORS.primary },
+  generateBtnText: { fontFamily: FONTS.light, color: '#fff', fontSize: 12, letterSpacing: 2 },
+
+  // Day Cards Grid (2 columns)
+  dayCardsGrid: { flexDirection: 'row', flexWrap: 'wrap', marginHorizontal: -6 },
+
+  // Flat-lay card
+  flatLayCard: {
+    width: (SCREEN_WIDTH - 40 - 12) / 2,
+    marginHorizontal: 6,
+    marginBottom: 16,
+    borderRadius: 24,
+    backgroundColor: 'rgba(255,255,255,0.03)',
+    borderWidth: 1,
+    borderColor: 'rgba(255,255,255,0.06)',
+    overflow: 'hidden',
+    paddingBottom: 14,
+  },
+  flatLayDayBadge: {
+    alignSelf: 'flex-start',
+    marginTop: 12,
+    marginLeft: 14,
+    paddingHorizontal: 10,
+    paddingVertical: 5,
+    borderRadius: 8,
+    backgroundColor: 'rgba(255,255,255,0.06)',
+  },
+  flatLayDayText: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.6)', fontSize: 10, letterSpacing: 2 },
+  flatLayItems: {
+    alignItems: 'center',
+    justifyContent: 'center',
+    paddingVertical: 16,
+    paddingHorizontal: 10,
+    minHeight: 200,
+  },
+  flatLayEmpty: { flex: 1, alignItems: 'center', justifyContent: 'center', minHeight: 160 },
+  flatLayOccasion: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.3)', fontSize: 10, letterSpacing: 1, textAlign: 'center', marginTop: 4 },
+});
 
 export default WardrobeScreen;

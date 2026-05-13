@@ -1,5 +1,5 @@
 import React, { useMemo, useState } from 'react';
-import { View, Text, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator } from 'react-native';
+import { View, Text, ScrollView, TouchableOpacity, Image, Alert, ActivityIndicator, StyleSheet, Dimensions } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -8,12 +8,11 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { useRouter } from 'expo-router';
 import { apiClient } from '../src/lib/apiClient';
 import BottomNav from './components/BottomNav';
+import { COLORS, FONTS } from '../src/constants/theme';
 
-const GENDERS = ['male', 'female', 'non_binary', 'unspecified'] as const;
+const { width } = Dimensions.get('window');
+
 const OCCASIONS = ['casual', 'smart_casual', 'business_casual', 'business_formal', 'black_tie', 'athletic', 'party', 'old_money', 'streetwear', 'outdoor'] as const;
-const WEATHERS = ['hot', 'warm', 'mild', 'cool', 'cold'] as const;
-const SEASONS = ['spring', 'summer', 'autumn', 'winter'] as const;
-const STYLE_PREFERENCES = ['any', 'minimal', 'classic', 'streetwear', 'boho', 'edgy', 'preppy', 'old_money', 'sporty', 'feminine', 'masculine', 'business'] as const;
 
 function formatRelativeDate(value?: string) {
   if (!value) return '';
@@ -29,63 +28,11 @@ function formatRelativeDate(value?: string) {
   return `${days}d ago`;
 }
 
-function OptionChips({
-  label,
-  options,
-  value,
-  onChange,
-}: {
-  label: string;
-  options: readonly string[];
-  value: string;
-  onChange: (next: string) => void;
-}) {
-  return (
-    <View style={{ marginTop: 18 }}>
-      <Text className="text-white/60 text-xs uppercase tracking-widest mb-2" style={{ fontFamily: 'HelveticaNeue-Medium' }}>
-        {label}
-      </Text>
-      <ScrollView horizontal showsHorizontalScrollIndicator={false}>
-        {options.map((option) => {
-          const selected = option === value;
-          return (
-            <TouchableOpacity
-              key={option}
-              onPress={() => onChange(option)}
-              activeOpacity={0.85}
-              style={{
-                marginRight: 8,
-                paddingHorizontal: 14,
-                height: 40,
-                borderRadius: 999,
-                borderWidth: 1,
-                borderColor: selected ? '#FF6B35' : 'rgba(255,255,255,0.12)',
-                backgroundColor: selected ? 'rgba(255,107,53,0.18)' : 'rgba(255,255,255,0.05)',
-                alignItems: 'center',
-                justifyContent: 'center',
-              }}
-            >
-              <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: selected ? '#FF6B35' : 'rgba(255,255,255,0.72)', fontSize: 12 }}>
-                {option.replace(/_/g, ' ')}
-              </Text>
-            </TouchableOpacity>
-          );
-        })}
-      </ScrollView>
-    </View>
-  );
-}
-
 const RateScreen = () => {
   const router = useRouter();
   const qc = useQueryClient();
   const [selectedImage, setSelectedImage] = useState<ImagePicker.ImagePickerAsset | null>(null);
-  const [showAdvanced, setShowAdvanced] = useState(false);
-  const [gender, setGender] = useState<typeof GENDERS[number]>('unspecified');
   const [occasion, setOccasion] = useState<typeof OCCASIONS[number]>('casual');
-  const [weather, setWeather] = useState<typeof WEATHERS[number]>('mild');
-  const [season, setSeason] = useState<typeof SEASONS[number]>('spring');
-  const [stylePreference, setStylePreference] = useState<typeof STYLE_PREFERENCES[number]>('any');
 
   const { data: recentData, isLoading: recentLoading } = useQuery({
     queryKey: ['outfit-photo-ratings', 'recent'],
@@ -105,11 +52,11 @@ const RateScreen = () => {
     mutationFn: async () => {
       if (!selectedImage) throw new Error('Select an image first.');
       const form = new FormData();
-      form.append('gender', gender);
+      form.append('gender', 'unspecified');
       form.append('occasion', occasion);
-      form.append('weather', weather);
-      form.append('season', season);
-      form.append('style_preference', stylePreference);
+      form.append('weather', 'mild');
+      form.append('season', 'spring');
+      form.append('style_preference', 'any');
       form.append('mode', 'direct_vision');
       form.append('file', {
         uri: selectedImage.uri,
@@ -124,20 +71,12 @@ const RateScreen = () => {
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['outfit-photo-ratings', 'recent'] });
       setSelectedImage(null);
-      Alert.alert('Queued', 'Your outfit photo was uploaded. AI rating is now processing.');
+      Alert.alert('Analysis Started', 'AI is now rating your look.');
     },
     onError: (err: any) => {
-      const msg = err?.response?.data?.error ?? err?.response?.data?.message ?? err?.message ?? 'Upload failed.';
-      Alert.alert('Upload Failed', msg);
+      Alert.alert('Upload Failed', err?.response?.data?.error ?? 'Something went wrong.');
     },
   });
-
-  const averageScore = useMemo(() => {
-    const completed = recentRatings.filter((row) => row?.status === 'completed' && row?.rating != null);
-    if (completed.length === 0) return null;
-    const total = completed.reduce((sum, row) => sum + Number(row.rating || 0), 0);
-    return total / completed.length;
-  }, [recentRatings]);
 
   const pickImage = async (useCamera = false) => {
     if (useCamera) {
@@ -151,13 +90,11 @@ const RateScreen = () => {
     const result = useCamera
       ? await ImagePicker.launchCameraAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        // Do NOT force an editor crop; users should be able to upload any aspect ratio.
         allowsEditing: false,
         quality: 0.85,
       })
       : await ImagePicker.launchImageLibraryAsync({
         mediaTypes: ImagePicker.MediaTypeOptions.Images,
-        // Do NOT force an editor crop; users should be able to upload any aspect ratio.
         allowsEditing: false,
         quality: 0.85,
       });
@@ -168,283 +105,172 @@ const RateScreen = () => {
   };
 
   return (
-    <View className="flex-1 bg-black">
-      <LinearGradient colors={['rgba(60, 0, 8, 0.45)', 'rgba(60, 0, 8, 0.30)', 'rgba(60, 0, 8, 0.55)']} style={{ flex: 1 }}>
-        <SafeAreaView className="flex-1">
-          <ScrollView contentContainerStyle={{ paddingBottom: 160 }} showsVerticalScrollIndicator={false}>
-            <View className="px-5 pt-4" style={{ gap: 26 }}>
-              <View className="flex-row items-center justify-between">
-                <Text className="text-white text-3xl font-light tracking-wide" style={{ fontFamily: 'HelveticaNeue-Light' }}>
-                  AI Outfit Ratings
-                </Text>
-                <View className="bg-white/10 px-3 py-2 rounded-full border border-white/10">
-                  <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff', fontSize: 12 }}>
-                    {averageScore != null ? `${averageScore.toFixed(1)} avg` : 'No ratings yet'}
-                  </Text>
-                </View>
-              </View>
+    <View style={styles.container}>
+      <LinearGradient colors={['#000', '#0a0a0a', '#121212']} style={{ flex: 1 }}>
+        <SafeAreaView style={{ flex: 1 }}>
+          {/* Header */}
+          <View style={styles.header}>
+            <Text style={styles.headerTitle}>RATE MY LOOK</Text>
+          </View>
 
-              <View
-                style={{
-                  borderRadius: 32,
-                  overflow: 'hidden',
-                  backgroundColor: 'rgba(255,255,255,0.04)',
-                  borderWidth: 1,
-                  borderColor: 'rgba(255,255,255,0.08)',
-                }}
-              >
-                <LinearGradient
-                  colors={['rgba(255, 107, 53, 0.14)', 'rgba(0,0,0,0.0)', 'rgba(255,255,255,0.02)']}
-                  start={{ x: 0, y: 0 }}
-                  end={{ x: 1, y: 1 }}
-                  style={{ padding: 24, borderRadius: 30 }}
-                >
-                  <View style={{ flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between', marginBottom: 18 }}>
-                    <View style={{ flex: 1, paddingRight: 12 }}>
-                      <Text className="text-white text-2xl font-bold mb-2" style={{ fontFamily: 'HelveticaNeue-Bold' }}>
-                        Rate your outfit
-                      </Text>
-                      <Text className="text-white/60 text-sm leading-5" style={{ fontFamily: 'HelveticaNeue' }}>
-                        Upload one look and get fast AI feedback in a clean, premium format.
-                      </Text>
-                    </View>
-                    <View
-                      style={{
-                        width: 52,
-                        height: 52,
-                        borderRadius: 18,
-                        alignItems: 'center',
-                        justifyContent: 'center',
-                        backgroundColor: 'rgba(255,107,53,0.12)',
-                        borderWidth: 1,
-                        borderColor: 'rgba(255,107,53,0.22)',
-                      }}
-                    >
-                      <Ionicons name="sparkles-outline" size={24} color="#FF6B35" />
-                    </View>
-                  </View>
-
-                  {selectedImage ? (
-                    <Image
-                      source={{ uri: selectedImage.uri }}
-                      style={{ width: '100%', height: 240, borderRadius: 24, marginBottom: 16 }}
-                      resizeMode="cover"
-                    />
-                  ) : (
-                    <View style={{ height: 210, borderRadius: 24, marginBottom: 16, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', alignItems: 'center', justifyContent: 'center' }}>
-                      <View style={{ width: 64, height: 64, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-                        <Ionicons name="image-outline" size={28} color="rgba(255,255,255,0.34)" />
-                      </View>
-                      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.72)', fontSize: 14, marginTop: 14 }}>
-                        Add an outfit photo
-                      </Text>
-                      <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.42)', fontSize: 12, marginTop: 6 }}>
-                        Minimal input, instant rating
-                      </Text>
-                    </View>
-                  )}
-
-                  <View style={{ flexDirection: 'row', gap: 10 }}>
-                    <TouchableOpacity
-                      onPress={() => pickImage(true)}
-                      className="flex-1 flex-row items-center justify-center bg-white/10 py-4 rounded-2xl border border-white/10"
-                      activeOpacity={0.9}
-                    >
-                      <Ionicons name="camera-outline" size={18} color="white" style={{ marginRight: 8 }} />
-                      <Text className="text-white" style={{ fontFamily: 'HelveticaNeue-Medium' }}>
-                        Camera
-                      </Text>
-                    </TouchableOpacity>
-                    <TouchableOpacity
-                      onPress={() => pickImage(false)}
-                      className="flex-1 flex-row items-center justify-center bg-white/10 py-4 rounded-2xl border border-white/10"
-                      activeOpacity={0.9}
-                    >
-                      <Ionicons name="images-outline" size={18} color="white" style={{ marginRight: 8 }} />
-                      <Text className="text-white" style={{ fontFamily: 'HelveticaNeue-Medium' }}>
-                        Gallery
-                      </Text>
-                    </TouchableOpacity>
-                  </View>
-
-                  <View
-                    style={{
-                      marginTop: 14,
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                      justifyContent: 'space-between',
-                    }}
-                  >
-                    <View>
-                      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff', fontSize: 13 }}>
-                        Advanced parameters
-                      </Text>
-                      <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.45)', fontSize: 11, marginTop: 2 }}>
-                        Optional context for a more specific rating
-                      </Text>
-                    </View>
-                    <TouchableOpacity
-                      onPress={() => setShowAdvanced((s) => !s)}
-                      activeOpacity={0.85}
-                      style={{
-                        flexDirection: 'row',
-                        alignItems: 'center',
-                        backgroundColor: 'rgba(255,255,255,0.06)',
-                        borderWidth: 1,
-                        borderColor: 'rgba(255,255,255,0.10)',
-                        borderRadius: 999,
-                        paddingHorizontal: 14,
-                        paddingVertical: 9,
-                      }}
-                    >
-                      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff', fontSize: 12, marginRight: 6 }}>
-                        {showAdvanced ? 'Hide' : 'Customize'}
-                      </Text>
-                      <Ionicons name={showAdvanced ? 'chevron-up' : 'chevron-down'} size={14} color="#FF6B35" />
-                    </TouchableOpacity>
-                  </View>
-
-                  {showAdvanced ? (
-                    <View
-                      style={{
-                        marginTop: 10,
-                        paddingTop: 8,
-                        borderTopWidth: 1,
-                        borderTopColor: 'rgba(255,255,255,0.06)',
-                      }}
-                    >
-                      <OptionChips label="Gender" options={GENDERS} value={gender} onChange={(v) => setGender(v as any)} />
-                      <OptionChips label="Occasion" options={OCCASIONS} value={occasion} onChange={(v) => setOccasion(v as any)} />
-                      <OptionChips label="Weather" options={WEATHERS} value={weather} onChange={(v) => setWeather(v as any)} />
-                      <OptionChips label="Season" options={SEASONS} value={season} onChange={(v) => setSeason(v as any)} />
-                      <OptionChips label="Style Preference" options={STYLE_PREFERENCES} value={stylePreference} onChange={(v) => setStylePreference(v as any)} />
-                    </View>
-                  ) : (
-                    <View
-                      style={{
-                        marginTop: 14,
-                        paddingHorizontal: 14,
-                        paddingVertical: 12,
-                        borderRadius: 18,
-                        backgroundColor: 'rgba(255,255,255,0.04)',
-                        borderWidth: 1,
-                        borderColor: 'rgba(255,255,255,0.06)',
-                      }}
-                    >
-                      <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.55)', fontSize: 12 }}>
-                        Default context:
-                        <Text style={{ color: '#fff' }}> {occasion.replace(/_/g, ' ')}</Text>
-                        <Text style={{ color: 'rgba(255,255,255,0.42)' }}> • </Text>
-                        <Text style={{ color: '#fff' }}>{weather}</Text>
-                        <Text style={{ color: 'rgba(255,255,255,0.42)' }}> • </Text>
-                        <Text style={{ color: '#fff' }}>{season}</Text>
-                      </Text>
-                    </View>
-                  )}
-
-                  <TouchableOpacity
-                    onPress={() => {
-                      if (!selectedImage) {
-                        Alert.alert('Missing Image', 'Please select an outfit photo first.');
-                        return;
-                      }
-                      uploadMutation.mutate();
-                    }}
-                    className="flex-row items-center justify-center bg-[#FF6B35] py-4 rounded-2xl shadow-lg shadow-orange-500/20 mt-5"
-                    activeOpacity={0.9}
-                    disabled={uploadMutation.isPending}
-                  >
-                    {uploadMutation.isPending ? (
-                      <ActivityIndicator color="white" />
-                    ) : (
-                      <>
-                        <Ionicons name="scan-outline" size={20} color="white" style={{ marginRight: 8 }} />
-                        <Text className="text-white font-bold text-light" style={{ fontFamily: 'HelveticaNeue-Light' }}>
-                          Analyze Outfit
-                        </Text>
-                      </>
-                    )}
+          <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+            {/* Upload Area */}
+            <View style={styles.uploadCard}>
+              {selectedImage ? (
+                <View style={styles.previewContainer}>
+                  <Image source={{ uri: selectedImage.uri }} style={styles.previewImage} resizeMode="cover" />
+                  <TouchableOpacity onPress={() => setSelectedImage(null)} style={styles.removeImageBtn}>
+                    <Ionicons name="close" size={16} color="#fff" />
                   </TouchableOpacity>
-                </LinearGradient>
-              </View>
-
-              {/* Recent Analysis */}
-              <View>
-                <View className="flex-row items-center justify-between mb-2 px-1">
-                  <Text className="text-white text-xl font-light" style={{ fontFamily: 'HelveticaNeue-Light' }}>
-                    Recent Analysis
-                  </Text>
-                  <View style={{ backgroundColor: 'rgba(255,255,255,0.06)', borderRadius: 999, paddingHorizontal: 12, paddingVertical: 6, borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' }}>
-                    <Text className="text-white/50 text-sm" style={{ fontFamily: 'HelveticaNeue' }}>
-                      Latest 5
-                    </Text>
+                </View>
+              ) : (
+                <TouchableOpacity onPress={() => pickImage(false)} style={styles.dropZone}>
+                  <View style={styles.dropZoneIcon}>
+                    <Ionicons name="add" size={32} color="rgba(255,255,255,0.2)" />
                   </View>
-                </View>
+                  <Text style={styles.dropZoneTitle}>Upload your outfit</Text>
+                  <Text style={styles.dropZoneSubtitle}>Full body shots work best</Text>
+                </TouchableOpacity>
+              )}
 
-                <View style={{ gap: 10 }}>
-                  {recentLoading ? (
-                    <ActivityIndicator color="#FF6B35" style={{ alignSelf: 'flex-start', marginTop: 8 }} />
-                  ) : recentRatings.length === 0 ? (
-                    <View className="bg-white/05 border border-white/10 rounded-3xl p-5">
-                      <Text className="text-white/60" style={{ fontFamily: 'HelveticaNeue' }}>
-                        No outfit photo ratings yet.
+              {/* Quick Actions */}
+              <View style={styles.uploadActions}>
+                {!selectedImage && (
+                  <TouchableOpacity onPress={() => pickImage(true)} style={styles.actionBtn}>
+                    <Ionicons name="camera-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+                    <Text style={styles.actionBtnText}>Take Photo</Text>
+                  </TouchableOpacity>
+                )}
+                {selectedImage && (
+                  <TouchableOpacity onPress={() => pickImage(false)} style={styles.actionBtn}>
+                    <Ionicons name="images-outline" size={18} color="#fff" style={{ marginRight: 8 }} />
+                    <Text style={styles.actionBtnText}>Change</Text>
+                  </TouchableOpacity>
+                )}
+              </View>
+
+              {/* Occasion Selector */}
+              <Text style={styles.occasionLabel}>OCCASION</Text>
+              <ScrollView horizontal showsHorizontalScrollIndicator={false} contentContainerStyle={styles.occasionScroll}>
+                {OCCASIONS.map((opt) => {
+                  const selected = opt === occasion;
+                  return (
+                    <TouchableOpacity
+                      key={opt}
+                      onPress={() => setOccasion(opt)}
+                      activeOpacity={0.8}
+                      style={[styles.occasionChip, selected && styles.occasionChipActive]}
+                    >
+                      <Text style={[styles.occasionChipText, selected && styles.occasionChipTextActive]}>
+                        {opt.replace(/_/g, ' ')}
                       </Text>
-                    </View>
-                  ) : (
-                    recentRatings.map((row) => (
-                      <TouchableOpacity
-                        key={row.id}
-                        onPress={() => router.push(`/rate-detail?id=${row.id}` as any)}
-                        activeOpacity={0.85}
-                        className="flex-row items-center justify-between bg-white/05 border border-white/10 rounded-3xl p-3"
-                      >
-                        <View className="flex-row items-center" style={{ flex: 1 }}>
-                          <Image
-                            source={{ uri: row.image_url }}
-                            style={{ width: 68, height: 68, borderRadius: 20, marginRight: 14, backgroundColor: 'rgba(255,255,255,0.08)' }}
-                          />
-                          <View style={{ flex: 1 }}>
-                            <Text className="text-white text-base font-medium mb-1" style={{ fontFamily: 'HelveticaNeue-Medium' }} numberOfLines={1}>
-                              {(row.dominant_aesthetic || row.occasion || 'Outfit rating').replace(/_/g, ' ')}
-                            </Text>
-                            <Text className="text-white/40 text-xs" style={{ fontFamily: 'HelveticaNeue' }}>
-                              {[row.occasion, row.weather, row.season].filter(Boolean).join(' • ') || formatRelativeDate(row.created_at)}
-                            </Text>
-                            {row.status !== 'completed' ? (
-                              <Text style={{ fontFamily: 'HelveticaNeue', color: '#FF6B35', fontSize: 11, marginTop: 4 }}>
-                                {row.status === 'failed' ? (row.error_message || 'Failed') : 'Processing...'}
-                              </Text>
-                            ) : null}
-                          </View>
-                        </View>
+                    </TouchableOpacity>
+                  );
+                })}
+              </ScrollView>
 
-                        <View className="flex-row items-center pr-2">
-                          <View className="items-end">
-                            <View className="flex-row items-center bg-[#FF6B35]/10 px-3 py-1.5 rounded-xl border border-[#FF6B35]/20">
-                              <Text className="text-white text-base font-bold mr-1" style={{ fontFamily: 'HelveticaNeue-Bold' }}>
-                                {row.status === 'completed' && row.rating != null ? Number(row.rating).toFixed(1) : '...'}
-                              </Text>
-                              <Ionicons name="star" size={12} color="#FF6B35" />
-                            </View>
-                            <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.35)', fontSize: 10, marginTop: 5 }}>
-                              {formatRelativeDate(row.created_at)}
-                            </Text>
-                          </View>
-                          <Ionicons name="chevron-forward" size={18} color="rgba(255,255,255,0.28)" style={{ marginLeft: 10 }} />
+              {/* Submit */}
+              <TouchableOpacity
+                onPress={() => uploadMutation.mutate()}
+                disabled={!selectedImage || uploadMutation.isPending}
+                style={[styles.submitBtn, !selectedImage && styles.submitBtnDisabled]}
+              >
+                {uploadMutation.isPending ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <Text style={styles.submitBtnText}>ANALYZE</Text>
+                )}
+              </TouchableOpacity>
+            </View>
+
+            {/* Recent */}
+            {recentRatings.length > 0 && (
+              <View style={styles.recentSection}>
+                <Text style={styles.recentTitle}>RECENT</Text>
+                <View style={styles.ratingList}>
+                  {recentRatings.map((row) => (
+                    <TouchableOpacity
+                      key={row.id}
+                      onPress={() => router.push(`/rate-detail?id=${row.id}` as any)}
+                      activeOpacity={0.8}
+                      style={styles.ratingItem}
+                    >
+                      {row.image_url ? (
+                        <Image source={{ uri: row.image_url }} style={styles.ratingThumb} />
+                      ) : (
+                        <View style={[styles.ratingThumb, { alignItems: 'center', justifyContent: 'center' }]}>
+                          <Ionicons name="image-outline" size={20} color="rgba(255,255,255,0.1)" />
                         </View>
-                      </TouchableOpacity>
-                    ))
-                  )}
+                      )}
+                      <View style={styles.ratingInfo}>
+                        <Text style={styles.ratingMainText} numberOfLines={1}>
+                          {(row.occasion || 'Look').replace(/_/g, ' ')}
+                        </Text>
+                        <Text style={styles.ratingSubText}>
+                          {formatRelativeDate(row.created_at)}
+                        </Text>
+                      </View>
+                      <View style={styles.ratingScoreContainer}>
+                        <Text style={styles.ratingScoreValue}>
+                          {row.status === 'completed' ? Number(row.rating).toFixed(1) : '...'}
+                        </Text>
+                      </View>
+                    </TouchableOpacity>
+                  ))}
                 </View>
               </View>
-            </View>
+            )}
           </ScrollView>
+          <BottomNav active="rate" />
         </SafeAreaView>
-        <BottomNav active="rate" />
       </LinearGradient>
     </View>
   );
 };
 
-export default RateScreen;
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000' },
+  header: { paddingHorizontal: 25, paddingVertical: 20 },
+  headerTitle: { fontFamily: FONTS.light, color: '#fff', fontSize: 22, letterSpacing: 4 },
+  
+  scrollContent: { paddingBottom: 140 },
+  uploadCard: { marginHorizontal: 20, padding: 20 },
+  
+  previewContainer: { height: 320, borderRadius: 20, overflow: 'hidden', marginBottom: 15, position: 'relative' },
+  previewImage: { width: '100%', height: '100%' },
+  removeImageBtn: { position: 'absolute', top: 12, right: 12, width: 30, height: 30, borderRadius: 15, backgroundColor: 'rgba(0,0,0,0.6)', alignItems: 'center', justifyContent: 'center' },
+  
+  dropZone: { height: 200, borderRadius: 20, borderStyle: 'dashed', borderWidth: 1, borderColor: 'rgba(255,255,255,0.12)', backgroundColor: 'rgba(255,255,255,0.02)', alignItems: 'center', justifyContent: 'center', marginBottom: 15 },
+  dropZoneIcon: { width: 56, height: 56, borderRadius: 28, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', marginBottom: 12 },
+  dropZoneTitle: { fontFamily: FONTS.light, color: '#fff', fontSize: 14 },
+  dropZoneSubtitle: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.3)', fontSize: 12, marginTop: 4 },
+  
+  uploadActions: { flexDirection: 'row', gap: 10, marginBottom: 20 },
+  actionBtn: { flex: 1, height: 46, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center', flexDirection: 'row', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)' },
+  actionBtnText: { fontFamily: FONTS.light, color: '#fff', fontSize: 13 },
+  
+  occasionLabel: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.3)', fontSize: 10, letterSpacing: 2, marginBottom: 10 },
+  occasionScroll: { gap: 8, paddingBottom: 20 },
+  occasionChip: { paddingHorizontal: 14, height: 34, borderRadius: 17, backgroundColor: 'rgba(255,255,255,0.05)', alignItems: 'center', justifyContent: 'center', borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  occasionChipActive: { backgroundColor: 'rgba(255,107,53,0.12)', borderColor: COLORS.primary },
+  occasionChipText: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.5)', fontSize: 11 },
+  occasionChipTextActive: { color: COLORS.primary },
+  
+  submitBtn: { height: 54, borderRadius: 18, backgroundColor: COLORS.primary, alignItems: 'center', justifyContent: 'center' },
+  submitBtnDisabled: { opacity: 0.4 },
+  submitBtnText: { fontFamily: FONTS.light, color: '#fff', fontSize: 14, letterSpacing: 2 },
+  
+  recentSection: { marginTop: 30, paddingHorizontal: 25 },
+  recentTitle: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.3)', fontSize: 10, letterSpacing: 3, marginBottom: 15 },
+  
+  ratingList: { gap: 10 },
+  ratingItem: { flexDirection: 'row', alignItems: 'center', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 18, padding: 10, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  ratingThumb: { width: 50, height: 50, borderRadius: 14, backgroundColor: 'rgba(255,255,255,0.08)' },
+  ratingInfo: { flex: 1, marginLeft: 12 },
+  ratingMainText: { fontFamily: FONTS.light, color: '#fff', fontSize: 13 },
+  ratingSubText: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.3)', fontSize: 11, marginTop: 3 },
+  ratingScoreContainer: { paddingHorizontal: 12, paddingVertical: 6, borderRadius: 10, backgroundColor: 'rgba(255,107,53,0.1)', marginRight: 8 },
+  ratingScoreValue: { fontFamily: FONTS.light, color: '#fff', fontSize: 13 },
+});
 
+export default RateScreen;

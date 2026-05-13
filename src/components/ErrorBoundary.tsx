@@ -20,16 +20,11 @@ export class ErrorBoundary extends React.Component<Props, State> {
     // Ignore the Fast Refresh null-error blips entirely.
     if (error == null) return;
 
-    console.error('[ErrorBoundary]', error?.message);
-    if (error?.stack) console.error('[ErrorBoundary stack]', error.stack);
-    console.error('[ErrorBoundary componentStack]', info?.componentStack);
+    // Only log real errors
     try {
-      console.error(
-        '[FULL ERROR OBJECT]',
-        JSON.stringify(error, Object.getOwnPropertyNames(error))
-      );
+      console.error('[ErrorBoundary]', error?.message ?? String(error));
     } catch {
-      // ignore
+      // ignore serialisation failures
     }
   }
 
@@ -37,10 +32,10 @@ export class ErrorBoundary extends React.Component<Props, State> {
     if (this.state.hasError) {
       return (
         <View style={{ flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', padding: 24 }}>
-          <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 20, textAlign: 'center', marginBottom: 8 }}>
+          <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 20, textAlign: 'center', marginBottom: 8 }}>
             Something went wrong
           </Text>
-          <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.6)', fontSize: 14, textAlign: 'center', marginBottom: 32 }}>
+          <Text style={{ fontFamily: 'HelveticaNeue-Light', color: 'rgba(255,255,255,0.6)', fontSize: 14, textAlign: 'center', marginBottom: 32 }}>
             An unexpected error occurred. Please try again.
           </Text>
           <TouchableOpacity
@@ -55,7 +50,7 @@ export class ErrorBoundary extends React.Component<Props, State> {
             }}
             style={{ backgroundColor: '#FF6B35', paddingHorizontal: 32, paddingVertical: 14, borderRadius: 999 }}
           >
-            <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#fff', fontSize: 16 }}>
+            <Text style={{ fontFamily: 'HelveticaNeue-Light', color: '#fff', fontSize: 16 }}>
               Try Again
             </Text>
           </TouchableOpacity>

@@ -39,7 +39,6 @@ const VendorNav: React.FC<VendorNavProps> = ({ active }) => {
                     borderWidth: 0.5,
                     borderColor: '#FF6B35',
                     backgroundColor: 'rgba(0,0,0,0.65)',
-                    backdropFilter: 'blur(20px)',
                     shadowColor: '#FF6B35',
                     shadowOpacity: 0.3,
                     shadowRadius: 15,

@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   View, Text, ScrollView, TextInput, TouchableOpacity,
   ActivityIndicator, Alert, KeyboardAvoidingView, Platform,
+  StyleSheet, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -9,6 +10,7 @@ import { Ionicons } from '@expo/vector-icons';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { apiClient } from '../../src/lib/apiClient';
+import { COLORS, FONTS } from '../../src/constants/theme';
 
 const SLOTS = ['upperwear', 'lowerwear', 'outerwear', 'accessories', 'footwear'];
 const CONDITIONS = ['new', 'good', 'fair', 'worn'];
@@ -55,111 +57,122 @@ export default function ItemEditScreen() {
   });
 
   const handleSave = () => {
+    if (!form.name.trim()) {
+      Alert.alert('Required', 'Please enter an item name.');
+      return;
+    }
     mutation.mutate(form);
   };
 
   if (isLoading) {
     return (
-      <View className="flex-1 bg-black justify-center items-center">
-        <ActivityIndicator color="#FF6B35" size="large" />
+      <View style={styles.loaderContainer}>
+        <ActivityIndicator color={COLORS.primary} size="large" />
       </View>
     );
   }
 
   return (
-    <View className="flex-1 bg-black">
-      <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
-        <SafeAreaView className="flex-1" edges={['top']}>
+    <View style={styles.container}>
+      <LinearGradient colors={['#000', '#0a0a0a', '#121212']} style={{ flex: 1 }}>
+        <SafeAreaView style={{ flex: 1 }} edges={['top']}>
           {/* Header */}
-          <View className="flex-row items-center justify-between px-5 h-14 border-b border-white/10">
-            <View className="flex-row items-center">
-              <TouchableOpacity onPress={() => router.back()} className="p-1 mr-3">
-                <Ionicons name="close" size={28} color="white" />
-              </TouchableOpacity>
-              <Text className="text-white text-lg font-bold" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
-                Edit Item
-              </Text>
-            </View>
-            <TouchableOpacity onPress={handleSave} disabled={mutation.isPending}>
+          <View style={styles.header}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.backBtn}>
+              <Ionicons name="close" size={24} color="white" />
+            </TouchableOpacity>
+            <Text style={styles.headerTitle}>EDIT ITEM</Text>
+            <TouchableOpacity 
+              onPress={handleSave} 
+              disabled={mutation.isPending}
+              style={styles.saveBtn}
+            >
               {mutation.isPending ? (
-                <ActivityIndicator color="#FF6B35" />
+                <ActivityIndicator color={COLORS.primary} />
               ) : (
-                <Text style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold', color: '#FF6B35', fontSize: 16 }}>
-                  Save
-                </Text>
+                <Text style={styles.saveBtnText}>SAVE</Text>
               )}
             </TouchableOpacity>
           </View>
 
-          <KeyboardAvoidingView behavior={Platform.OS === 'ios' ? 'padding' : 'height'} style={{ flex: 1 }}>
-            <ScrollView className="flex-1 px-5" showsVerticalScrollIndicator={false} contentContainerStyle={{ paddingTop: 20, paddingBottom: 40 }}>
+          <KeyboardAvoidingView 
+            behavior={Platform.OS === 'ios' ? 'padding' : 'height'} 
+            style={{ flex: 1 }}
+          >
+            <ScrollView 
+              style={styles.scroll} 
+              showsVerticalScrollIndicator={false} 
+              contentContainerStyle={styles.scrollContent}
+            >
               
-              <Text className="text-white/40 text-xs mb-2 uppercase tracking-widest" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }}>
-                Item Name
-              </Text>
-              <View className="bg-white/10 rounded-2xl px-4 h-14 mb-6 border border-white/10 justify-center">
-                <TextInput
-                  value={form.name}
-                  onChangeText={(v) => setForm({ ...form, name: v })}
-                  placeholder="e.g. Vintage Denim Jacket"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  className="text-white text-[16px]"
-                  style={{ fontFamily: 'HelveticaNeue' }}
-                />
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>ITEM NAME</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    value={form.name}
+                    onChangeText={(v) => setForm({ ...form, name: v })}
+                    placeholder="e.g. Classic Silk Shirt"
+                    placeholderTextColor="rgba(255,255,255,0.2)"
+                    style={styles.input}
+                    selectionColor={COLORS.primary}
+                  />
+                </View>
               </View>
 
-              <Text className="text-white/40 text-xs mb-2 uppercase tracking-widest" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }}>
-                Brand (Optional)
-              </Text>
-              <View className="bg-white/10 rounded-2xl px-4 h-14 mb-6 border border-white/10 justify-center">
-                <TextInput
-                  value={form.brand}
-                  onChangeText={(v) => setForm({ ...form, brand: v })}
-                  placeholder="e.g. Levi's"
-                  placeholderTextColor="rgba(255,255,255,0.3)"
-                  className="text-white text-[16px]"
-                  style={{ fontFamily: 'HelveticaNeue' }}
-                />
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>BRAND</Text>
+                <View style={styles.inputWrapper}>
+                  <TextInput
+                    value={form.brand}
+                    onChangeText={(v) => setForm({ ...form, brand: v })}
+                    placeholder="e.g. Saint Laurent"
+                    placeholderTextColor="rgba(255,255,255,0.2)"
+                    style={styles.input}
+                    selectionColor={COLORS.primary}
+                  />
+                </View>
               </View>
 
-              <Text className="text-white/40 text-xs mb-3 uppercase tracking-widest" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }}>
-                Category Slot
-              </Text>
-              <View className="flex-row flex-wrap mb-6">
-                {SLOTS.map((s) => (
-                  <TouchableOpacity
-                    key={s}
-                    onPress={() => setForm({ ...form, wardrobe_slot: s })}
-                    className={`px-4 h-11 rounded-full mr-2 mb-2 border ${
-                      form.wardrobe_slot === s ? 'bg-[#FF6B35] border-[#FF6B35]' : 'bg-white/5 border-white/10'
-                    }`}
-                    style={{ alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    <Text className={`capitalize text-sm ${form.wardrobe_slot === s ? 'text-white font-bold' : 'text-white/60'}`} style={{ fontFamily: 'HelveticaNeue' }}>
-                      {s}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.selectorGroup}>
+                <Text style={styles.inputLabel}>WARDROBE SLOT</Text>
+                <View style={styles.chipsContainer}>
+                  {SLOTS.map((s) => {
+                    const active = form.wardrobe_slot === s;
+                    return (
+                      <TouchableOpacity
+                        key={s}
+                        onPress={() => setForm({ ...form, wardrobe_slot: s })}
+                        activeOpacity={0.8}
+                        style={[styles.chip, active && styles.chipActive]}
+                      >
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                          {s.toUpperCase()}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
 
-              <Text className="text-white/40 text-xs mb-3 uppercase tracking-widest" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }}>
-                Condition
-              </Text>
-              <View className="flex-row flex-wrap mb-6">
-                {CONDITIONS.map((c) => (
-                  <TouchableOpacity
-                    key={c}
-                    onPress={() => setForm({ ...form, condition: c })}
-                    className={`px-4 h-11 rounded-full mr-2 mb-2 border ${
-                      form.condition === c ? 'bg-[#FF6B35] border-[#FF6B35]' : 'bg-white/5 border-white/10'
-                    }`}
-                    style={{ alignItems: 'center', justifyContent: 'center' }}
-                  >
-                    <Text className={`capitalize text-sm ${form.condition === c ? 'text-white font-bold' : 'text-white/60'}`} style={{ fontFamily: 'HelveticaNeue' }}>
-                      {c.replace('_', ' ')}
-                    </Text>
-                  </TouchableOpacity>
-                ))}
+              <View style={styles.selectorGroup}>
+                <Text style={styles.inputLabel}>CONDITION</Text>
+                <View style={styles.chipsContainer}>
+                  {CONDITIONS.map((c) => {
+                    const active = form.condition === c;
+                    return (
+                      <TouchableOpacity
+                        key={c}
+                        onPress={() => setForm({ ...form, condition: c })}
+                        activeOpacity={0.8}
+                        style={[styles.chip, active && styles.chipActive]}
+                      >
+                        <Text style={[styles.chipText, active && styles.chipTextActive]}>
+                          {c.toUpperCase()}
+                        </Text>
+                      </TouchableOpacity>
+                    );
+                  })}
+                </View>
               </View>
 
             </ScrollView>
@@ -169,3 +182,28 @@ export default function ItemEditScreen() {
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000' },
+  loaderContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center' },
+  header: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', paddingHorizontal: 20, height: 70, borderBottomWidth: 1, borderBottomColor: 'rgba(255,255,255,0.05)' },
+  backBtn: { width: 40, height: 40, borderRadius: 20, alignItems: 'center', justifyContent: 'center', backgroundColor: 'rgba(255,255,255,0.05)' },
+  headerTitle: { fontFamily: FONTS.light, color: '#fff', fontSize: 18, letterSpacing: 3 },
+  saveBtn: { paddingHorizontal: 15, height: 40, alignItems: 'center', justifyContent: 'center' },
+  saveBtnText: { fontFamily: FONTS.bold, color: COLORS.primary, fontSize: 14, letterSpacing: 2 },
+  
+  scroll: { flex: 1 },
+  scrollContent: { paddingHorizontal: 25, paddingTop: 30, paddingBottom: 60 },
+  
+  inputGroup: { marginBottom: 35 },
+  inputLabel: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.3)', fontSize: 10, letterSpacing: 3, marginBottom: 15 },
+  inputWrapper: { height: 60, borderRadius: 20, backgroundColor: 'rgba(255,255,255,0.03)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.08)', justifyContent: 'center', paddingHorizontal: 20 },
+  input: { fontFamily: FONTS.medium, color: '#fff', fontSize: 16 },
+  
+  selectorGroup: { marginBottom: 35 },
+  chipsContainer: { flexDirection: 'row', flexWrap: 'wrap', gap: 10 },
+  chip: { paddingHorizontal: 18, height: 44, borderRadius: 22, backgroundColor: 'rgba(255,255,255,0.04)', borderWidth: 1, borderColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
+  chipActive: { backgroundColor: 'rgba(255,107,53,0.15)', borderColor: COLORS.primary },
+  chipText: { fontFamily: FONTS.medium, color: 'rgba(255,255,255,0.4)', fontSize: 12, letterSpacing: 1 },
+  chipTextActive: { color: COLORS.primary },
+});

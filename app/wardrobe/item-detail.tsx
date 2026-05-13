@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React from 'react';
 import {
-  View, Text, ScrollView, ImageBackground, TouchableOpacity,
-  ActivityIndicator, Alert, Image,
+  View, Text, ScrollView, TouchableOpacity,
+  ActivityIndicator, Alert, Image, StyleSheet, Dimensions,
 } from 'react-native';
 import { SafeAreaView } from 'react-native-safe-area-context';
 import { LinearGradient } from 'expo-linear-gradient';
@@ -10,25 +10,16 @@ import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { useLocalSearchParams, useRouter } from 'expo-router';
 import { apiClient } from '../../src/lib/apiClient';
 import ModeSwitchOverlay from '../components/ModeSwitchOverlay';
+import { COLORS, FONTS } from '../../src/constants/theme';
 
-// ─── Sub-component: AI Tag ────────────────────────────────────────────────
-function AITag({ label }: { label: string }) {
-  if (!label) return null;
-  return (
-    <View style={{ backgroundColor: 'rgba(255,255,255,0.1)', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999, borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)', marginRight: 8, marginBottom: 8 }}>
-      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: '#fff', fontSize: 12 }}>
-        {label}
-      </Text>
-    </View>
-  );
-}
+const { width: SCREEN_WIDTH } = Dimensions.get('window');
+const IMAGE_HEIGHT = SCREEN_WIDTH * 1.1; // Portrait ratio
 
 export default function ItemDetailScreen() {
   const router = useRouter();
   const qc = useQueryClient();
   const { id } = useLocalSearchParams<{ id: string }>();
 
-  // ─── Fetch Item Details ─────────────────────────────────────────────────
   const { data: itemData, isLoading } = useQuery({
     queryKey: ['wardrobe-item', id],
     queryFn: () => apiClient.get(`/wardrobe/items/${id}`).then(r => r.data),
@@ -37,12 +28,10 @@ export default function ItemDetailScreen() {
 
   const item = itemData?.item ?? itemData?.data ?? itemData;
 
-  // ─── AI Polling ─────────────────────────────────────────────────────────
   const { data: aiData } = useQuery({
     queryKey: ['ai-status', id],
     queryFn: () => apiClient.get(`/wardrobe/items/${id}/ai-status`).then(r => r.data),
     refetchInterval: (query) => {
-      // Data path depends on API structure. Handle { ai: {status} } or { status }
       const status = query.state.data?.ai?.status ?? query.state.data?.status;
       return status === 'completed' || status === 'failed' ? false : 3000;
     },
@@ -56,63 +45,20 @@ export default function ItemDetailScreen() {
     !!item?.fashionclip_sub_category ||
     (Array.isArray(item?.fashionclip_attributes) && item.fashionclip_attributes.length > 0);
 
-  // Materialized segment rows can already be fully populated even when there is no ai_results
-  // row directly keyed by their own wardrobe item id.
   const currentAIStatus =
-    rawAIStatus === 'not_found' && hasResolvedWardrobeAI
-      ? 'completed'
-      : rawAIStatus;
+    rawAIStatus === 'not_found' && hasResolvedWardrobeAI ? 'completed' : rawAIStatus;
   const isCompleted = currentAIStatus === 'completed';
   const isFailed = currentAIStatus === 'failed';
   const isAnalyzing = !isCompleted && !isFailed;
 
   const aiResult = aiData?.ai?.result ?? aiData?.result ?? null;
   const segments = Array.isArray(aiResult?.segments) ? aiResult?.segments : [];
-
   const primaryImageUrl = aiResult?.image_url ?? item?.image_url ?? null;
 
   const seg0Gemma = segments?.[0]?.gemma_attributes ?? {};
-  const segFallbackMain = seg0Gemma?.category ?? seg0Gemma?.main_category ?? null;
-  const segFallbackSub = seg0Gemma?.subcategory ?? seg0Gemma?.sub_category ?? null;
+  const mainCategory = item?.fashionclip_main_category ?? seg0Gemma?.category ?? 'unknown';
+  const subCategory = item?.fashionclip_sub_category ?? seg0Gemma?.subcategory ?? '';
 
-  // Category rendering must use new FashionCLIP fields; if they are null, fall back to the first segment's Gemma attributes.
-  const mainCategory = item?.fashionclip_main_category ?? segFallbackMain ?? 'unknown';
-  const subCategory = item?.fashionclip_sub_category ?? segFallbackSub ?? '';
-
-  // Temporary debug to validate the new Models PC contract.
-  React.useEffect(() => {
-    console.log('[ItemDetail AI]', {
-      itemId: id,
-      status: currentAIStatus,
-      rawStatus: rawAIStatus,
-      segmentsCount: segments.length,
-      wardrobeMain: item?.fashionclip_main_category ?? null,
-      wardrobeSub: item?.fashionclip_sub_category ?? null,
-      aiResultHasSegments: Array.isArray(aiResult?.segments),
-      hasResolvedWardrobeAI,
-    });
-  }, [id, currentAIStatus, rawAIStatus, segments.length, item?.fashionclip_main_category, item?.fashionclip_sub_category, aiResult?.segments, hasResolvedWardrobeAI]);
-
-  const rawAIJson =
-    item?.wardrobe_slot ||
-    item?.fashionclip_main_category ||
-    item?.fashionclip_sub_category ||
-    (item?.fashionclip_attributes?.length ?? 0) > 0
-      ? JSON.stringify(
-          {
-            wardrobe_slot: item?.wardrobe_slot ?? null,
-            fashionclip_main_category: item?.fashionclip_main_category ?? null,
-            fashionclip_sub_category: item?.fashionclip_sub_category ?? null,
-            fashionclip_attributes: Array.isArray(item?.fashionclip_attributes) ? item.fashionclip_attributes : null,
-            segments_present: Array.isArray(aiResult?.segments),
-            segments_length: Array.isArray(aiResult?.segments) ? aiResult?.segments.length : 0,
-          },
-          null,
-          2
-        )
-      : null;
-
-  // If completed, refresh the main item to get the newly attached attributes
   React.useEffect(() => {
     if (currentAIStatus === 'completed') {
       qc.invalidateQueries({ queryKey: ['wardrobe-item', id] });
@@ -121,18 +67,13 @@ export default function ItemDetailScreen() {
     }
   }, [currentAIStatus, id, qc]);
 
-  // ─── Mutations ──────────────────────────────────────────────────────────
-  const retryClassificationMutation = useMutation({
+  const retryMutation = useMutation({
     mutationFn: () => apiClient.post(`/wardrobe/items/${id}/retry-classification`).then(r => r.data),
     onSuccess: () => {
       qc.invalidateQueries({ queryKey: ['ai-status', id] });
       qc.invalidateQueries({ queryKey: ['wardrobe-item', id] });
     },
-    onError: (err: any) => {
-      const d = err?.response?.data;
-      const msg = d?.error ?? d?.message ?? 'Retry failed.';
-      Alert.alert('Retry Failed', msg);
-    },
+    onError: (err: any) => Alert.alert('Retry Failed', err?.response?.data?.error ?? 'Please try again.'),
   });
 
   const wornMutation = useMutation({
@@ -152,271 +93,178 @@ export default function ItemDetailScreen() {
   });
 
   const handleDelete = () => {
-    Alert.alert(
-      'Delete Item',
-      'Are you sure you want to remove this item from your wardrobe?',
-      [
-        { text: 'Cancel', style: 'cancel' },
-        { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate() },
-      ]
-    );
+    Alert.alert('Delete Item', 'Remove this item from your wardrobe?', [
+      { text: 'Cancel', style: 'cancel' },
+      { text: 'Delete', style: 'destructive', onPress: () => deleteMutation.mutate() },
+    ]);
   };
 
+  const colorValue = typeof item?.color_dominant_rgb === 'string' ? item.color_dominant_rgb : null;
+
   return (
-    <View className="flex-1 bg-black">
+    <View style={styles.container}>
       {isLoading ? (
         <ModeSwitchOverlay />
       ) : !item ? (
-        <View className="flex-1 bg-black justify-center items-center">
-          <Text className="text-white/60">Item not found.</Text>
-          <TouchableOpacity onPress={() => router.back()} className="mt-4 px-6 h-14 bg-white/10 rounded-full">
-            <Text className="text-white">Go Back</Text>
+        <View style={styles.emptyContainer}>
+          <Text style={styles.emptyText}>Item not found.</Text>
+          <TouchableOpacity onPress={() => router.back()} style={styles.goBackBtn}>
+            <Text style={styles.goBackText}>GO BACK</Text>
           </TouchableOpacity>
         </View>
       ) : (
-        <LinearGradient colors={['rgba(60,0,8,0.45)', 'rgba(60,0,8,0.30)', 'rgba(60,0,8,0.55)']} style={{ flex: 1 }}>
-        <ScrollView contentContainerStyle={{ paddingBottom: 60 }} showsVerticalScrollIndicator={false} bounces={false}>
-          {/* Header Image */}
-          <View className="h-[450px] w-full relative">
-            <ImageBackground
-              source={{ uri: primaryImageUrl ?? item.image_url }}
-              style={{ width: '100%', height: '100%', justifyContent: 'flex-end' }}
-              resizeMode="cover"
-            >
-              <LinearGradient
-                colors={['rgba(0,0,0,0)', 'rgba(0,0,0,0.5)', '#000000']}
-                style={{ height: '50%', width: '100%', position: 'absolute', bottom: 0 }}
+        <View style={{ flex: 1, backgroundColor: '#000' }}>
+          {/* Fixed top nav */}
+          <SafeAreaView edges={['top']} style={styles.topBar}>
+            <TouchableOpacity onPress={() => router.back()} style={styles.navBtn}>
+              <Ionicons name="chevron-back" size={22} color="#fff" />
+            </TouchableOpacity>
+            <View style={styles.navRight}>
+              <TouchableOpacity
+                onPress={() => router.push(`/wardrobe/item-edit?id=${id}` as any)}
+                style={styles.navBtn}
+              >
+                <Ionicons name="pencil" size={18} color="#fff" />
+              </TouchableOpacity>
+              <TouchableOpacity onPress={handleDelete} style={[styles.navBtn, styles.deleteBtn]}>
+                <Ionicons name="trash-outline" size={18} color="#FF3B30" />
+              </TouchableOpacity>
+            </View>
+          </SafeAreaView>
+
+          <ScrollView
+            showsVerticalScrollIndicator={false}
+            contentContainerStyle={styles.scrollContent}
+            bounces={false}
+          >
+            {/* Product Image */}
+            <View style={styles.imageContainer}>
+              <Image
+                source={{ uri: primaryImageUrl ?? item.image_url }}
+                style={styles.productImage}
+                resizeMode="cover"
               />
-
-              {/* Navigation Bar */}
-              <SafeAreaView edges={['top']} style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
-                <View className="flex-row justify-between items-center px-5 h-14">
-                  <TouchableOpacity onPress={() => router.back()} className="bg-black/30 p-2 rounded-full border border-white/10 backdrop-blur-md" activeOpacity={0.7}>
-                    <Ionicons name="arrow-back" size={24} color="white" />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={() => router.push(`/wardrobe/item-edit?id=${id}` as any)} className="bg-black/30 p-2 rounded-full border border-white/10 backdrop-blur-md mr-3" activeOpacity={0.7}>
-                    <Ionicons name="create-outline" size={24} color="white" />
-                  </TouchableOpacity>
-                  <TouchableOpacity onPress={handleDelete} className="bg-black/30 p-2 rounded-full border border-white/10 backdrop-blur-md" activeOpacity={0.7}>
-                    <Ionicons name="trash-outline" size={24} color="#FF3B30" />
-                  </TouchableOpacity>
-                </View>
-              </SafeAreaView>
-
-              <View className="px-5 pb-6">
-                {item.brand && (
-                  <Text className="text-orange-400 font-bold tracking-widest uppercase text-xs mb-1" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
-                    {item.brand}
-                  </Text>
-                )}
-                <Text className="text-white text-3xl font-bold leading-tight" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
-                  {item.name}
-                </Text>
-                {item.condition && (
-                  <View className="flex-row mt-2">
-                    <View style={{ backgroundColor: 'rgba(255,255,255,0.2)', paddingHorizontal: 12, paddingVertical: 5, borderRadius: 999 }}>
-                      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.8)', fontSize: 12, textTransform: 'uppercase' }}>
-                        {item.condition.replace(/_/g, ' ')}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-            </ImageBackground>
-          </View>
-
-          {/* Details Section */}
-          <View className="px-5 pt-4">
-            {/* AI Classification Card */}
-            {isAnalyzing ? (
-              <View className="bg-white/5 border border-orange-500/30 rounded-[24px] p-5 items-center justify-center flex-row shadow-lg my-4 shadow-orange-500/10">
-                <ActivityIndicator color="#FF6B35" style={{ marginRight: 12 }} />
-                <View style={{ flex: 1 }}>
-                  <Text className="text-orange-400 font-bold" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
-                    AI Analysis in progress...
-                  </Text>
-                  <Text className="text-white/60 text-xs mt-1" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}>
-                    We're tagging the color, pattern, and style.
-                  </Text>
-                </View>
-              </View>
-            ) : isFailed ? (
-              <View className="bg-red-500/10 border border-red-500/30 rounded-[24px] p-5 items-center justify-center flex-row my-4">
-                <Ionicons name="warning-outline" size={24} color="#FF3B30" style={{ marginRight: 12 }} />
-                <View style={{ flex: 1 }}>
-                  <Text className="text-red-400 font-bold" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
-                    Analysis Failed
-                  </Text>
-                  <Text className="text-white/60 text-xs mt-1" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}>
-                    We couldn't automatically tag this image.
-                  </Text>
-                  <TouchableOpacity
-                    onPress={() => retryClassificationMutation.mutate()}
-                    disabled={retryClassificationMutation.isPending}
-                    style={{
-                      marginTop: 12,
-                      backgroundColor: retryClassificationMutation.isPending ? 'rgba(255,107,53,0.25)' : 'rgba(255,107,53,0.18)',
-                      borderWidth: 1,
-                      borderColor: 'rgba(255,107,53,0.35)',
-                      paddingHorizontal: 16,
-                      paddingVertical: 10,
-                      borderRadius: 999,
-                      alignSelf: 'flex-start',
-                      flexDirection: 'row',
-                      alignItems: 'center',
-                    }}
-                  >
-                    {retryClassificationMutation.isPending ? (
-                      <ActivityIndicator size="small" color="#FF6B35" />
-                    ) : (
-                      <>
-                        <Ionicons name="refresh-outline" size={16} color="#FF6B35" style={{ marginRight: 8 }} />
-                        <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#FF6B35', fontSize: 13 }}>Retry</Text>
-                      </>
-                    )}
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ) : (
-              <View className="bg-white/5 border border-white/10 rounded-[24px] p-5 my-4">
-                <View className="flex-row justify-between items-center mb-4 pb-4 border-b border-white/10">
-                  <Text className="text-white/50 text-xs uppercase tracking-widest" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }}>
-                    AI Tags
-                  </Text>
-                  <Ionicons name="sparkles" size={16} color="#FF6B35" />
-                </View>
-
-                <View className="mb-4">
-                  <Text className="text-white/40 text-xs mb-2" style={{ fontFamily: 'HelveticaNeue' }}>Category</Text>
-                  <View style={{ backgroundColor: 'rgba(255,107,53,0.2)', borderWidth: 1, borderColor: '#FF6B35', alignSelf: 'flex-start', paddingHorizontal: 12, paddingVertical: 6, borderRadius: 999 }}>
-                    <Text style={{ fontFamily: 'HelveticaNeue-Bold', color: '#FF6B35', fontSize: 13, textTransform: 'uppercase' }}>
-                      {String(mainCategory || 'unknown')}
-                    </Text>
-                    {subCategory ? (
-                      <Text style={{ fontFamily: 'HelveticaNeue-Medium', color: 'rgba(255,255,255,0.75)', fontSize: 11, marginTop: 2, textAlign: 'left' }}>
-                        {String(subCategory)}
-                      </Text>
-                    ) : null}
-                  </View>
-
-                  {(item?.tag || item?.wardrobe_slot) ? (
-                    <View style={{ marginTop: 8 }}>
-                      <Text style={{ fontFamily: 'HelveticaNeue', color: 'rgba(255,255,255,0.6)', fontSize: 11 }}>
-                        {item?.tag ? `Tag: ${item.tag}` : `Slot: ${item.wardrobe_slot}`}
-                      </Text>
-                    </View>
-                  ) : null}
-                </View>
-
-                {(mainCategory || subCategory || (item.fashionclip_attributes?.length > 0)) && (
-                  <View className="mb-4">
-                    <Text className="text-white/40 text-xs mb-2" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}>Attributes</Text>
-                    <View className="flex-row flex-wrap">
-                      <AITag label={String(mainCategory || '')} />
-                      {subCategory ? <AITag label={String(subCategory)} /> : null}
-                      {item.fashionclip_attributes?.map((attr: string, idx: number) => (
-                        <AITag key={idx} label={String(attr)} />
-                      ))}
-                    </View>
-                  </View>
-                )}
-
-                {rawAIJson ? (
-                  <View className="mb-1">
-                    <Text
-                      className="text-white/40 text-xs mb-2"
-                      style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}
-                    >
-                      Raw AI JSON
-                    </Text>
-                    <View
-                      style={{
-                        backgroundColor: 'rgba(0,0,0,0.35)',
-                        borderWidth: 1,
-                        borderColor: 'rgba(255,255,255,0.10)',
-                        borderRadius: 16,
-                        padding: 12,
-                      }}
-                    >
-                      <Text
-                        selectable
-                        style={{
-                          fontFamily: 'HelveticaNeue',
-                          color: 'rgba(255,255,255,0.65)',
-                          fontSize: 11,
-                          lineHeight: 16,
-                        }}
-                      >
-                        {rawAIJson}
-                      </Text>
-                    </View>
-                  </View>
-                ) : null}
-
-                {item.color_dominant_rgb && (
-                  <View>
-                    <Text className="text-white/40 text-xs mb-2" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}>Dominant Color</Text>
-                    <View className="flex-row items-center">
-                      <View
-                        style={{
-                          width: 28, height: 28, borderRadius: 14,
-                          backgroundColor: item.color_dominant_rgb,
-                          borderWidth: 1, borderColor: 'rgba(255,255,255,0.2)'
-                        }}
-                      />
-                      <Text className="text-white/80 text-sm ml-3 uppercase" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue' }}>
-                        {item.color_dominant_rgb}
-                      </Text>
-                    </View>
-                  </View>
-                )}
-              </View>
-            )}
-
-            {/* Stats */}
-            <View className="flex-row justify-between bg-white/5 border border-white/10 rounded-[24px] p-4 mb-6">
-              <View className="items-center flex-1">
-                <Text className="text-white text-xl font-bold" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
-                  {item.worn_count ?? 0}
-                </Text>
-                <Text className="text-white/50 text-xs uppercase tracking-widest mt-1" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }}>
-                  Times Worn
-                </Text>
-              </View>
-              <View className="w-[1px] bg-white/10" />
-              <View className="items-center flex-1">
-                <Text className="text-white text-xl font-bold mb-1" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Light' }}>
-                  <Ionicons name="calendar-outline" size={18} color="white" />
-                </Text>
-                <Text className="text-white/50 text-xs uppercase tracking-widest" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Medium' }}>
-                  Added {new Date(item.created_at).toLocaleDateString(undefined, { month: 'short', year: 'numeric' })}
-                </Text>
-              </View>
             </View>
 
-            {/* Wear Action */}
-            <TouchableOpacity
-              onPress={() => wornMutation.mutate()}
-              disabled={wornMutation.isPending}
-              className="w-full bg-[#FF6B35] h-14 rounded-full flex-row justify-center items-center shadow-lg shadow-orange-500/20"
-              activeOpacity={0.8}
-            >
-              {wornMutation.isPending ? (
-                <ActivityIndicator color="white" />
-              ) : (
-                <>
-                  <Ionicons name="shirt" size={20} color="white" style={{ marginRight: 8 }} />
-                  <Text className="text-white font-bold text-lg" style={{ paddingVertical: 0, textAlignVertical: 'top', fontFamily: 'HelveticaNeue-Bold' }}>
-                    Mark as Worn Today
-                  </Text>
-                </>
+            {/* Content */}
+            <View style={styles.content}>
+              {/* Name & Brand */}
+              {item.brand && (
+                <Text style={styles.brandLabel}>{String(item.brand).toUpperCase()}</Text>
               )}
-            </TouchableOpacity>
+              <Text style={styles.itemName}>{item.name || 'Untitled'}</Text>
 
-          </View>
-        </ScrollView>
-      </LinearGradient>
+              {/* AI Status */}
+              {isAnalyzing && (
+                <View style={styles.statusRow}>
+                  <ActivityIndicator color={COLORS.primary} size="small" />
+                  <Text style={styles.statusText}>Analyzing...</Text>
+                </View>
+              )}
+              {isFailed && (
+                <TouchableOpacity
+                  onPress={() => retryMutation.mutate()}
+                  disabled={retryMutation.isPending}
+                  style={styles.retryRow}
+                >
+                  <Ionicons name="refresh" size={16} color="#FF3B30" />
+                  <Text style={styles.retryText}>Analysis failed — tap to retry</Text>
+                </TouchableOpacity>
+              )}
+
+              {/* Details */}
+              <View style={styles.detailsRow}>
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>CATEGORY</Text>
+                  <Text style={styles.detailValue}>{String(mainCategory).toUpperCase()}</Text>
+                  {subCategory ? <Text style={styles.detailSub}>{String(subCategory)}</Text> : null}
+                </View>
+
+                <View style={styles.detailDivider} />
+
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>COLOR</Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 8 }}>
+                    <View style={[styles.swatch, { backgroundColor: colorValue || '#333' }]} />
+                    <Text style={styles.detailValue}>{colorValue ? colorValue.toUpperCase() : '—'}</Text>
+                  </View>
+                </View>
+
+                <View style={styles.detailDivider} />
+
+                <View style={styles.detailItem}>
+                  <Text style={styles.detailLabel}>WORN</Text>
+                  <Text style={styles.detailValue}>{item.worn_count ?? 0}</Text>
+                </View>
+              </View>
+
+              {/* Worn Button */}
+              <TouchableOpacity
+                onPress={() => wornMutation.mutate()}
+                disabled={wornMutation.isPending}
+                activeOpacity={0.8}
+                style={styles.wornBtn}
+              >
+                {wornMutation.isPending ? (
+                  <ActivityIndicator color="#fff" />
+                ) : (
+                  <>
+                    <Ionicons name="checkmark-circle-outline" size={20} color="#fff" style={{ marginRight: 10 }} />
+                    <Text style={styles.wornBtnText}>WORN TODAY</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+            </View>
+          </ScrollView>
+        </View>
       )}
     </View>
   );
 }
+
+const styles = StyleSheet.create({
+  container: { flex: 1, backgroundColor: '#000' },
+
+  // Empty
+  emptyContainer: { flex: 1, backgroundColor: '#000', justifyContent: 'center', alignItems: 'center', padding: 24 },
+  emptyText: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.4)', fontSize: 14, letterSpacing: 2 },
+  goBackBtn: { marginTop: 20, paddingHorizontal: 28, height: 48, borderRadius: 24, backgroundColor: 'rgba(255,255,255,0.06)', alignItems: 'center', justifyContent: 'center' },
+  goBackText: { fontFamily: FONTS.light, color: '#fff', fontSize: 12, letterSpacing: 2 },
+
+  // Top Bar
+  topBar: { position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10, flexDirection: 'row', justifyContent: 'space-between', paddingHorizontal: 16, paddingBottom: 8 },
+  navBtn: { width: 42, height: 42, borderRadius: 21, backgroundColor: 'rgba(0,0,0,0.45)', alignItems: 'center', justifyContent: 'center' },
+  navRight: { flexDirection: 'row', gap: 10 },
+  deleteBtn: { backgroundColor: 'rgba(255,59,48,0.12)' },
+
+  // Scroll
+  scrollContent: { paddingBottom: 60 },
+
+  // Image
+  imageContainer: { width: SCREEN_WIDTH, height: IMAGE_HEIGHT, backgroundColor: '#111' },
+  productImage: { width: '100%', height: '100%' },
+
+  // Content
+  content: { paddingHorizontal: 24, paddingTop: 24 },
+  brandLabel: { fontFamily: FONTS.light, color: COLORS.primary, fontSize: 11, letterSpacing: 3, marginBottom: 6 },
+  itemName: { fontFamily: FONTS.light, color: '#fff', fontSize: 28, letterSpacing: 0.5, marginBottom: 20 },
+
+  // AI Status
+  statusRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: 'rgba(255,107,53,0.06)', borderRadius: 14 },
+  statusText: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.5)', fontSize: 13 },
+  retryRow: { flexDirection: 'row', alignItems: 'center', gap: 10, marginBottom: 20, paddingVertical: 12, paddingHorizontal: 16, backgroundColor: 'rgba(255,59,48,0.06)', borderRadius: 14 },
+  retryText: { fontFamily: FONTS.light, color: 'rgba(255,59,48,0.7)', fontSize: 13 },
+
+  // Details
+  detailsRow: { flexDirection: 'row', alignItems: 'flex-start', backgroundColor: 'rgba(255,255,255,0.03)', borderRadius: 18, paddingVertical: 20, paddingHorizontal: 16, marginBottom: 24, borderWidth: 1, borderColor: 'rgba(255,255,255,0.05)' },
+  detailItem: { flex: 1, alignItems: 'center' },
+  detailLabel: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.3)', fontSize: 9, letterSpacing: 2, marginBottom: 8 },
+  detailValue: { fontFamily: FONTS.light, color: '#fff', fontSize: 14 },
+  detailSub: { fontFamily: FONTS.light, color: 'rgba(255,255,255,0.4)', fontSize: 11, marginTop: 3 },
+  detailDivider: { width: 1, height: 36, backgroundColor: 'rgba(255,255,255,0.06)', marginHorizontal: 4 },
+  swatch: { width: 18, height: 18, borderRadius: 9, borderWidth: 1, borderColor: 'rgba(255,255,255,0.15)' },
+
+  // Button
+  wornBtn: { height: 54, borderRadius: 27, backgroundColor: COLORS.primary, flexDirection: 'row', alignItems: 'center', justifyContent: 'center' },
+  wornBtnText: { fontFamily: FONTS.light, color: '#fff', fontSize: 14, letterSpacing: 2 },
+});
